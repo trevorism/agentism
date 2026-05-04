@@ -16,8 +16,8 @@ def parse_args() -> argparse.Namespace:
                         help="Preview writes/commits without making real changes")
     parser.add_argument("--debug", action="store_true",
                         help="Print raw LangGraph chunk keys each turn for debugging")
-    parser.add_argument("--chunk-timeout", metavar="SECS", type=float, default=120.0,
-                        help="Seconds to wait for each model chunk before giving up (default: 120)")
+    parser.add_argument("--chunk-timeout", metavar="SECS", type=float, default=600.0,
+                        help="Seconds to wait for each model chunk before giving up (default: 600)")
     return parser.parse_args()
 
 
@@ -36,4 +36,3 @@ def startup_plan(args: argparse.Namespace, issue_prompt_fn):
         initial_prompt = issue_prompt_fn(args.issue)
 
     return initial_prompt, batch_issues
-

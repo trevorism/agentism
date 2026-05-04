@@ -41,7 +41,7 @@ async def main_async(
     initial_thread: str = "main",
     batch_issues: list | None = None,
     debug: bool = False,
-    chunk_timeout: float = 120.0,
+    chunk_timeout: float = 600.0,
 ) -> None:
     print_welcome()
 
@@ -211,4 +211,3 @@ async def main_async(
 
             console.print()
             await run_turn(user_input)
-

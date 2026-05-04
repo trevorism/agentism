@@ -31,7 +31,7 @@ async def run_agent_turn(
     user_input: str,
     thread_id: str,
     debug: bool = False,
-    chunk_timeout: float = 120.0,
+    chunk_timeout: float = 600.0,
 ) -> tuple[str, TokenUsage]:
     """Stream one ReAct turn. Prints tool calls and results live; returns (text, tokens)."""
     cfg = {"configurable": {"thread_id": thread_id}}
@@ -98,4 +98,3 @@ async def probe_tool_calling(model: str) -> bool:
         return bool(getattr(resp, "tool_calls", None))
     except Exception:
         return False
-
