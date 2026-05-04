@@ -1,0 +1,15 @@
+.env
+
+# Agent runtime files
+memory.db*
+repos/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+dist/
+
+.idea/
+*.iml
