@@ -1,19 +1,10 @@
 """
 Level 2 Smoke Tests – Platform authentication and GitHub cmdlet integration.
-
-Tests:
-  2a  Platform token can be acquired via the PowerShell module
-  2b1 Add-GithubRepository cmdlet help is readable and has expected parameters
-  2b2 Add-GithubRepository can be invoked to create the 'agentism' repo
 """
 import pytest
 from tools.shell import run_powershell
 from tools.web_tool import _acquire_token
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2a  Platform token
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestPlatformToken:
     def test_token_is_acquired(self):
@@ -29,11 +20,6 @@ class TestPlatformToken:
         t1 = _acquire_token()
         t2 = _acquire_token()
         assert t1 and t2, "One of the two token calls returned empty"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# 2b  Add-GithubRepository cmdlet
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TestAddGithubRepository:
     def test_cmdlet_help_is_readable(self):

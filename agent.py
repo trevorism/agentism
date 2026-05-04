@@ -7,10 +7,9 @@ Tools  : PowerShell · Git · HTTP · GitHub MCP
 """
 import argparse
 import asyncio
-from contextlib import AsyncExitStack
 
 from langchain_ollama import ChatOllama
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from rich.console import Console
@@ -183,23 +182,19 @@ def _issue_prompt(ref: str) -> str:
 async def main_async(initial_prompt: str = "") -> None:
     print_welcome()
 
-    stack = AsyncExitStack()
-
     # ── MCP GitHub client ──────────────────────────────────────────────────────
     mcp_tools = []
     if config.GITHUB_TOKEN:
         try:
-            mcp_client = await stack.enter_async_context(
-                MultiServerMCPClient({
-                    "github": {
-                        "command": "npx",
-                        "args": ["-y", "@modelcontextprotocol/server-github"],
-                        "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": config.GITHUB_TOKEN},
-                        "transport": "stdio",
-                    }
-                })
-            )
-            mcp_tools = mcp_client.get_tools()
+            mcp_client = MultiServerMCPClient({
+                "github": {
+                    "command": "npx",
+                    "args": ["-y", "@modelcontextprotocol/server-github"],
+                    "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": config.GITHUB_TOKEN},
+                    "transport": "stdio",
+                }
+            })
+            mcp_tools = await mcp_client.get_tools()
             console.print(f"[green]✓[/green] GitHub MCP: {len(mcp_tools)} tools loaded.")
         except Exception as e:
             console.print(f"[yellow]⚠[/yellow]  GitHub MCP unavailable (is Node.js installed?): {e}")
@@ -212,10 +207,10 @@ async def main_async(initial_prompt: str = "") -> None:
     async with AsyncSqliteSaver.from_conn_string(config.MEMORY_DB) as checkpointer:
         llm = build_llm()
 
-        agent = create_react_agent(
+        agent = create_agent(
             llm,
             tools=all_tools,
-            prompt=SYSTEM_PROMPT,
+            system_prompt=SYSTEM_PROMPT,
             checkpointer=checkpointer,
         )
 
@@ -266,7 +261,6 @@ async def main_async(initial_prompt: str = "") -> None:
             ))
             console.print()
 
-    await stack.aclose()
 
 
 def main() -> None:
