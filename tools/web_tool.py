@@ -9,6 +9,21 @@ import httpx
 # Derive the platform hostname once so no org-specific string is hardcoded here.
 _PLATFORM_HOST = urlparse(PLATFORM_BASE_URL).hostname or ""
 
+# ── OpenAPI spec cache ────────────────────────────────────────────────────────
+# Keyed by base URL, value is the raw spec text. Avoids re-fetching every turn.
+_SPEC_CACHE: dict[str, str] = {}
+
+# Common Micronaut / Spring OpenAPI spec paths, tried in order.
+_OPENAPI_PATHS = [
+    "/swagger/swagger.yml",
+    "/swagger/swagger.json",
+    "/swagger-ui/swagger.json",
+    "/v3/api-docs",
+    "/v2/api-docs",
+    "/openapi.json",
+    "/openapi.yaml",
+]
+
 # ── Token cache ───────────────────────────────────────────────────────────────
 # Tokens are cached in-process and refreshed when they are close to expiry.
 _TOKEN_CACHE: dict[str, float | str] = {"token": "", "expires_at": 0.0}
@@ -135,3 +150,54 @@ def post_platform_api(path: str, json_body: str) -> str:
         return f"HTTP {e.response.status_code}: {e.response.text[:500]}"
     except Exception as e:
         return f"Request failed: {e}"
+
+
+@tool
+def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = False) -> str:
+    """
+    Fetch and return the OpenAPI/Swagger spec for a platform service.
+
+    Tries common Micronaut OpenAPI paths automatically. The result is cached
+    in-memory so repeated calls within a session are instant.
+
+    Use this before calling any platform REST endpoint to get accurate path,
+    method, and parameter information. Never guess endpoint signatures.
+
+    Args:
+        service_base_url: Base URL of the service (e.g. https://platform.example.com).
+                          Defaults to PLATFORM_BASE_URL from config.
+        force_refresh:    If True, bypass cached spec and re-fetch.
+
+    Returns:
+        OpenAPI spec text (YAML or JSON), a summary of found endpoints, or an error.
+    """
+    base = (service_base_url or PLATFORM_BASE_URL).rstrip("/")
+    if not base:
+        return "No service URL provided and PLATFORM_BASE_URL is not configured."
+
+    if not force_refresh and base in _SPEC_CACHE:
+        return f"[cached] {_SPEC_CACHE[base]}"
+
+    headers = _auth_headers() if _PLATFORM_HOST and _PLATFORM_HOST in base else {}
+
+    with httpx.Client(follow_redirects=True, timeout=15) as client:
+        for path in _OPENAPI_PATHS:
+            url = base + path
+            try:
+                resp = client.get(url, headers=headers)
+                if resp.status_code == 200:
+                    spec = resp.text
+                    _SPEC_CACHE[base] = spec
+                    # Return a size-limited version to avoid flooding the context window
+                    if len(spec) > 8000:
+                        return spec[:8000] + f"\n\n… (truncated, full spec is {len(spec)} chars, fetched from {url})"
+                    return f"# Spec from {url}\n{spec}"
+            except Exception:
+                continue
+
+    return (
+        f"Could not find an OpenAPI spec at {base}. "
+        f"Tried: {_OPENAPI_PATHS}\n"
+        "The service may not expose a spec, or it may require authentication."
+    )
+

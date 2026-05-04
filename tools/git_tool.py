@@ -2,6 +2,7 @@
 from pathlib import Path
 from langchain_core.tools import tool
 from config import WORKSPACE_DIR, DEV_DIR
+import config
 
 # Primary dev directory – pre-existing checkouts are found here before cloning.
 PRIMARY_DEV_DIR = DEV_DIR
@@ -68,6 +69,62 @@ def git_clone(repo_url: str, local_name: str = "") -> str:
 
 
 @tool
+def read_file_in_repo(repo_name: str, relative_path: str) -> str:
+    """
+    Read the contents of a file inside a local repository.
+
+    Always use this to inspect existing source files before modifying them.
+    Never assume file contents – read first, then write.
+
+    Args:
+        repo_name:     Short name of the repo folder (checked in DEV_DIR first), or absolute path.
+        relative_path: Path inside the repo (e.g. src/main/groovy/MyService.groovy).
+
+    Returns:
+        Full file contents as text, or an error message if the file does not exist.
+    """
+    target = _repo_path(repo_name) / relative_path
+    if not target.exists():
+        return f"File not found: {target}"
+    if not target.is_file():
+        return f"Path is not a file: {target}"
+    try:
+        return target.read_text(encoding="utf-8")
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+
+@tool
+def list_repo_files(repo_name: str, subdir: str = "", pattern: str = "*") -> str:
+    """
+    List files in a local repository directory, optionally filtered by glob pattern.
+
+    Use this to understand repo structure before reading or writing files.
+    Never assume what files exist – list them first.
+
+    Args:
+        repo_name: Short name of the repo folder (checked in DEV_DIR first), or absolute path.
+        subdir:    Subdirectory inside the repo to list (default: repo root).
+        pattern:   Glob pattern to filter results (default: "*" for all files).
+                   Use "**/*.groovy" for recursive Groovy files, "*.json" for JSON, etc.
+
+    Returns:
+        Newline-separated relative file paths, or an error message.
+    """
+    root = _repo_path(repo_name)
+    search_dir = root / subdir if subdir else root
+    if not search_dir.exists():
+        return f"Directory not found: {search_dir}"
+    try:
+        files = sorted(search_dir.glob(pattern))
+        if not files:
+            return f"No files matching '{pattern}' in {search_dir}"
+        return "\n".join(str(f.relative_to(root)) for f in files if f.is_file())
+    except Exception as e:
+        return f"Error listing files: {e}"
+
+
+@tool
 def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
     """
     Write (create or overwrite) a file inside a local repo.
@@ -81,6 +138,9 @@ def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
         Confirmation message with the file path written.
     """
     target = _repo_path(repo_name) / relative_path
+    if config.DRY_RUN:
+        preview = content[:200] + ("…" if len(content) > 200 else "")
+        return f"[DRY-RUN] Would write {len(content)} chars to: {target}\nPreview:\n{preview}"
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(content, encoding="utf-8")
     return f"Written: {target}"
@@ -131,9 +191,12 @@ def git_create_branch(repo_name: str, branch_name: str, from_branch: str = "main
 
     if branch_name in PROTECTED_BRANCHES:
         return f"Error: '{branch_name}' is a protected branch name. Choose a feature branch name."
+
+    if config.DRY_RUN:
+        return f"[DRY-RUN] Would create branch '{branch_name}' from '{from_branch}' in '{repo_name}'."
+
     try:
         repo = git.Repo(str(_repo_path(repo_name)))
-        # Make sure we're up to date on the source branch
         repo.git.checkout(from_branch)
         repo.remotes.origin.pull()
         new_branch = repo.create_head(branch_name)
@@ -168,6 +231,19 @@ def git_commit_and_push(repo_name: str, message: str) -> str:
             return (
                 f"Error: currently on protected branch '{current_branch}'. "
                 f"Use git_create_branch to create a feature branch first, then commit."
+            )
+        if config.DRY_RUN:
+            repo.git.add(A=True)
+            staged = [item.a_path for item in repo.index.diff("HEAD")] if repo.head.is_valid() else []
+            untracked = repo.untracked_files
+            changed = [item.a_path for item in repo.index.diff(None)]
+            all_changes = sorted(set(staged + untracked + changed))
+            repo.git.reset()   # undo the staging – don't leave a messy state
+            return (
+                f"[DRY-RUN] Would commit: {message!r}\n"
+                f"  Branch : {current_branch}\n"
+                f"  Changes: {all_changes}\n"
+                f"  Would push to origin/{current_branch}"
             )
         repo.git.add(A=True)
         if not repo.index.diff("HEAD") and not repo.untracked_files:
