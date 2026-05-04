@@ -21,7 +21,10 @@ PS_MODULE_PATH: str = os.getenv("PS_MODULE_PATH", "")
 DEV_DIR: Path = Path(os.getenv("DEV_DIR", ""))
 
 MEMORY_DB: str = os.getenv("MEMORY_DB", "memory.db")
-
 WORKSPACE_DIR: Path = Path(os.getenv("WORKSPACE_DIR", "./repos"))
 WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
+
+# Set to True via --dry-run flag or DRY_RUN=true env var.
+# When True, write/commit/push tools print their intent without making changes.
+DRY_RUN: bool = os.getenv("DRY_RUN", "false").lower() == "true"
 
