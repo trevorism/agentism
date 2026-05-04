@@ -109,12 +109,9 @@ async def main_async(
 
             async def heartbeat():
                 while True:
-                    await asyncio.sleep(15)
+                    await asyncio.sleep(30)
                     elapsed = time.monotonic() - start
-                    console.print(
-                        f"  [dim]⏱ still working... {elapsed:.0f}s "
-                        f"(timeout: {chunk_timeout:.0f}s per chunk)[/dim]"
-                    )
+                    console.print(f"  [dim]⏱ still working... {elapsed:.0f}s[/dim]")
 
             console.print("[cyan]Agent working...[/cyan]")
             hb = asyncio.create_task(heartbeat())
