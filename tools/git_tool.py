@@ -11,21 +11,59 @@ PRIMARY_DEV_DIR = DEV_DIR
 PROTECTED_BRANCHES = {"main", "master"}
 
 
+def _find_repo(name: str) -> Path | None:
+    """
+    Search DEV_DIR for a directory named `name`.
+
+    Checks two levels deep so repos nested under subdirectories
+    (e.g. DEV_DIR/ai/agentism) are found alongside top-level ones.
+    Returns the first match, or None if not found.
+    """
+    if not DEV_DIR or not DEV_DIR.exists():
+        return None
+
+    # Level 1 – DEV_DIR/<name>
+    candidate = DEV_DIR / name
+    if candidate.exists():
+        return candidate
+
+    # Level 2 – DEV_DIR/<subdir>/<name>  (e.g. C:/dev/ai/agentism)
+    try:
+        for subdir in DEV_DIR.iterdir():
+            if subdir.is_dir() and not subdir.name.startswith("."):
+                candidate = subdir / name
+                if candidate.exists():
+                    return candidate
+    except PermissionError:
+        pass
+
+    return None
+
+
 def _repo_path(repo_name: str) -> Path:
     """
     Resolve the local path for a repo.
 
     Resolution order:
       1. Absolute paths are used as-is.
-      2. DEV_DIR/<repo_name>  – pre-existing checkout in the primary dev directory.
-      3. WORKSPACE_DIR/<repo_name>  – agent-managed clones.
+      2. DEV_DIR/<repo_name>          – direct child of primary dev directory.
+      3. DEV_DIR/<subdir>/<repo_name>  – one level nested (e.g. ai/agentism).
+      4. WORKSPACE_DIR/<repo_name>     – agent-managed clones.
+
+    Raises ValueError if repo_name is '.' or empty — the agent must supply
+    the actual repository folder name, not a relative path placeholder.
     """
+    if not repo_name or repo_name.strip() in (".", ".."):
+        raise ValueError(
+            "repo_name must be the repository folder name (e.g. 'agentism'), "
+            "not '.' or empty. Use list_repo_files with the actual repo name."
+        )
     p = Path(repo_name)
     if p.is_absolute():
         return p
-    primary = PRIMARY_DEV_DIR / repo_name
-    if primary.exists():
-        return primary
+    found = _find_repo(repo_name)
+    if found:
+        return found
     return WORKSPACE_DIR / repo_name
 
 
@@ -50,12 +88,11 @@ def git_clone(repo_url: str, local_name: str = "") -> str:
 
     name = local_name or repo_url.rstrip("/").split("/")[-1].removesuffix(".git")
 
-    # Check primary dev dir first
-    primary = PRIMARY_DEV_DIR / name
-    if primary.exists():
-        return f"Found existing checkout at {primary} – using that."
+    found = _find_repo(name)
+    if found:
+        return f"Found existing checkout at {found} – using that."
 
-    # Check agent workspace
+    # Not found anywhere locally – clone into workspace
     workspace = WORKSPACE_DIR / name
     if workspace.exists():
         return f"Found existing checkout at {workspace} – using that."
