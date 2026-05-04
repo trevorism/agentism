@@ -1,4 +1,6 @@
 .env
+.env.*
+!.env.example
 
 # Agent runtime files
 memory.db*

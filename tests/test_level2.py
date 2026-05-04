@@ -1,7 +1,6 @@
 """
 Level 2 Smoke Tests – Platform authentication and GitHub cmdlet integration.
 """
-import pytest
 from tools.shell import run_powershell
 from tools.web_tool import _acquire_token
 
@@ -55,32 +54,3 @@ class TestAddGithubRepository:
         assert "Required?                    false" in token_block, (
             "-token should be Required=false"
         )
-
-    def test_create_agentism_repository(self):
-        """
-        Invoke Add-GithubRepository to create the 'agentism' repository.
-
-        Reads the cmdlet help first, then calls it with the platform token.
-        This test creates a real repository – safe to re-run (cmdlet is idempotent
-        if the repo already exists or the error is caught).
-        """
-        # Step 1: acquire token the same way the agent would
-        token = _acquire_token()
-        assert token, "Cannot create repo without a platform token"
-
-        # Step 2: invoke the cmdlet using what we learned from the help
-        result = run_powershell.invoke({
-            "command": f"Add-GithubRepository -serviceName 'agentism' -token '{token}'",
-            "import_modules": ["Github"],
-        })
-        print(f"\nAdd-GithubRepository result:\n{result}")
-
-        # Accept success OR "already exists" style responses; fail on hard errors
-        lower = result.lower()
-        hard_errors = ["exception", "error:", "is not recognized", "access denied", "unauthorized", "forbidden"]
-        triggered = [e for e in hard_errors if e in lower]
-        assert not triggered, (
-            f"Cmdlet returned a hard error (the service account may need elevated permissions):\n{result}"
-        )
-
-

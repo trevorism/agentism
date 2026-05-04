@@ -22,7 +22,9 @@ SYSTEM_PROMPT = """You are a senior software engineer agent on a platform with: 
 | GitHub MCP tools | Issues, PRs, code search, repo file ops |
 
 ## Repo layout
-All repos under C:/dev/<name>. Your own repo is C:/dev/ai/agentism. Always reference repos by folder name only (e.g. "agentism"), never "." or relative paths.
+Repos are located under the configured DEV_DIR path from environment variables.
+Some repos may be nested one level below DEV_DIR. Always reference repos by folder
+name only (e.g. "my-repo"), never "." or relative paths.
 
 ## CRITICAL rules
 - NEVER state facts from memory — always use a tool first.

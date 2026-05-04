@@ -16,7 +16,7 @@ def _find_repo(name: str) -> Path | None:
     Search DEV_DIR for a directory named `name`.
 
     Checks two levels deep so repos nested under subdirectories
-    (e.g. DEV_DIR/ai/agentism) are found alongside top-level ones.
+    are found alongside top-level ones.
     Returns the first match, or None if not found.
     """
     if not DEV_DIR or not DEV_DIR.exists():
@@ -27,7 +27,7 @@ def _find_repo(name: str) -> Path | None:
     if candidate.exists():
         return candidate
 
-    # Level 2 – DEV_DIR/<subdir>/<name>  (e.g. C:/dev/ai/agentism)
+    # Level 2 – DEV_DIR/<subdir>/<name>
     try:
         for subdir in DEV_DIR.iterdir():
             if subdir.is_dir() and not subdir.name.startswith("."):
@@ -47,7 +47,7 @@ def _repo_path(repo_name: str) -> Path:
     Resolution order:
       1. Absolute paths are used as-is.
       2. DEV_DIR/<repo_name>          – direct child of primary dev directory.
-      3. DEV_DIR/<subdir>/<repo_name>  – one level nested (e.g. ai/agentism).
+      3. DEV_DIR/<subdir>/<repo_name>  – one level nested.
       4. WORKSPACE_DIR/<repo_name>     – agent-managed clones.
 
     Raises ValueError if repo_name is '.' or empty — the agent must supply
@@ -55,7 +55,7 @@ def _repo_path(repo_name: str) -> Path:
     """
     if not repo_name or repo_name.strip() in (".", ".."):
         raise ValueError(
-            "repo_name must be the repository folder name (e.g. 'agentism'), "
+            "repo_name must be the repository folder name (e.g. 'my-repo'), "
             "not '.' or empty. Use list_repo_files with the actual repo name."
         )
     p = Path(repo_name)
@@ -295,4 +295,3 @@ def git_commit_and_push(repo_name: str, message: str) -> str:
         )
     except Exception as e:
         return f"Error: {e}"
-
