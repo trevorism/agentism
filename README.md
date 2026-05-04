@@ -5,7 +5,8 @@ A local agent (LangGraph + Ollama) that can develop software
 ## Architecture
 
 ```
-agent.py                     ← entry point / REPL
+start.py                     ← entry point / REPL
+agent.py                     ← bootstrap module used by start.py
 config.py                    ← env-based config
 tools/
   shell.py                   ← run_powershell
@@ -40,7 +41,7 @@ notepad .env
 uv sync
 
 # 4. Run
-uv run python agent.py
+uv run start.py
 ```
 
 ## Configuration (`.env`)
@@ -59,5 +60,4 @@ uv run python agent.py
 
 - Add a new tool: create a `@tool` function in `tools/` and add it to `LOCAL_TOOLS` in `tools/__init__.py`.
 - Switch models: change `OLLAMA_MODEL` in `.env` (try `qwen2.5-coder:14b` for better code generation).
-- Multi-thread conversations: change `thread_id` in `agent.py` to support parallel sessions.
-
+- Multi-thread conversations: change `thread_id` handling in `app.py` to support parallel sessions.

@@ -108,17 +108,17 @@ def git_clone(repo_url: str, local_name: str = "") -> str:
 @tool
 def read_file_in_repo(repo_name: str, relative_path: str) -> str:
     """
-    Read the contents of a file inside a local repository.
+    Read the full contents of a file inside a local repository.
 
     Always use this to inspect existing source files before modifying them.
     Never assume file contents – read first, then write.
 
     Args:
-        repo_name:     Short name of the repo folder (checked in DEV_DIR first), or absolute path.
+        repo_name:     Repo folder name (located in DEV_DIR automatically), or absolute path.
         relative_path: Path inside the repo (e.g. src/main/groovy/MyService.groovy).
 
     Returns:
-        Full file contents as text, or an error message if the file does not exist.
+        Full file contents as text, or an error message.
     """
     target = _repo_path(repo_name) / relative_path
     if not target.exists():
@@ -126,7 +126,7 @@ def read_file_in_repo(repo_name: str, relative_path: str) -> str:
     if not target.is_file():
         return f"Path is not a file: {target}"
     try:
-        return target.read_text(encoding="utf-8")
+        return target.read_text(encoding="utf-8", errors="replace")
     except Exception as e:
         return f"Error reading file: {e}"
 
