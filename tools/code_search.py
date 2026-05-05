@@ -21,6 +21,7 @@ def _search_with_rg(pattern: str, search_root: Path, file_glob: str, max_results
         "--line-number",
         "--color=never",
         f"--max-count={max_results}",
+        "--glob", "!.git/**",
         "--glob", file_glob,
         pattern,
         str(search_root),

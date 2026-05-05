@@ -1,5 +1,6 @@
 from types import SimpleNamespace
 
+import pytest
 from rich.console import Console
 
 import commands
@@ -55,4 +56,38 @@ def test_cmd_tools_uses_shared_truncation(monkeypatch):
     assert "long_tool" in output
     assert "x" * 100 in output
     assert "x" * 101 not in output
+
+
+@pytest.mark.asyncio
+async def test_dispatch_help_does_not_pass_unexpected_args(monkeypatch):
+    recording_console = Console(record=True, width=120)
+    monkeypatch.setattr(commands, "console", recording_console)
+
+    repl = ReplCommands(
+        state=_state(),
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+
+    result = await repl.dispatch("!help", issue_fn=lambda s: s, pr_fn=lambda s: s)
+
+    assert result is None
+    output = recording_console.export_text()
+    assert "REPL Commands" in output
+
+
+@pytest.mark.asyncio
+async def test_dispatch_thread_passes_args_and_updates_state():
+    state = _state()
+    repl = ReplCommands(
+        state=state,
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+
+    result = await repl.dispatch("!thread feature-x", issue_fn=lambda s: s, pr_fn=lambda s: s)
+
+    assert result is None
+    assert state.thread_id == "feature-x"
+
 

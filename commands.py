@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import textwrap
 from typing import Any, Callable
 
@@ -206,11 +207,14 @@ class ReplCommands:
 
         handler = getattr(self, method_name)
 
-        # Build arguments: always pass args list; inject issue_fn/pr_fn where needed
-        kwargs: dict[str, Any] = {"args": parts[1:]}
-        if method_name == "cmd_issue":
+        # Build arguments based on handler signature so no-arg commands do not crash.
+        params = inspect.signature(handler).parameters
+        kwargs: dict[str, Any] = {}
+        if "args" in params:
+            kwargs["args"] = parts[1:]
+        if "issue_fn" in params:
             kwargs["issue_fn"] = issue_fn
-        if method_name == "cmd_review":
+        if "pr_fn" in params:
             kwargs["pr_fn"] = pr_fn
 
         result = handler(**kwargs)

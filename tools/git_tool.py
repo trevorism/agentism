@@ -136,6 +136,8 @@ def list_repo_files(repo_name: str, subdir: str = "", pattern: str = "*") -> str
     """
     List files in a local repository directory, optionally filtered by glob pattern.
 
+    .git internals are always excluded to keep output focused on source files.
+
     Use this to understand repo structure before reading or writing files.
     Never assume what files exist – list them first.
 
@@ -154,9 +156,13 @@ def list_repo_files(repo_name: str, subdir: str = "", pattern: str = "*") -> str
         return f"Directory not found: {search_dir}"
     try:
         files = sorted(search_dir.glob(pattern))
-        if not files:
+        visible_files = [
+            f for f in files
+            if f.is_file() and ".git" not in f.relative_to(root).parts
+        ]
+        if not visible_files:
             return f"No files matching '{pattern}' in {search_dir}"
-        return "\n".join(str(f.relative_to(root)) for f in files if f.is_file())
+        return "\n".join(str(f.relative_to(root)) for f in visible_files)
     except Exception as e:
         return f"Error listing files: {e}"
 
