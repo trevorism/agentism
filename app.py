@@ -235,8 +235,6 @@ async def main_async(
                         console.print()
                         await run_turn(result)
                     continue
-
-                    console.print()
                 await run_turn(user_input)
     finally:
         await _safe_close_async(mcp_client)

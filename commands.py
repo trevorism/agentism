@@ -101,7 +101,7 @@ class ReplCommands:
                                 title=f"[cyan]You ({i}/{len(history)})[/cyan]",
                                 border_style="cyan"))
             console.print(Panel(
-                Markdown(textwrap.shorten(a, 600)) if a else "[dim](no response)[/dim]",
+                Markdown(a) if a else "[dim](no response)[/dim]",
                 title="[green]Agent[/green]", border_style="green"))
 
     def cmd_thread(self, args: list) -> None:
