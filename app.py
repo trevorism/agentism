@@ -61,16 +61,16 @@ async def main_async(
     mcp_tools = []
     if config.GITHUB_TOKEN:
         try:
-            mcp_client = MultiServerMCPClient({
+            async with MultiServerMCPClient({
                 "github": {
                     "command": "npx",
                     "args": ["-y", "@modelcontextprotocol/server-github"],
                     "env": {"GITHUB_PERSONAL_ACCESS_TOKEN": config.GITHUB_TOKEN},
                     "transport": "stdio",
                 }
-            })
-            mcp_tools = await mcp_client.get_tools()
-            console.print(f"[green]✓[/green] GitHub MCP: {len(mcp_tools)} tools loaded.")
+            }) as mcp_client:
+                mcp_tools = await mcp_client.get_tools()
+                console.print(f"[green]✓[/green] GitHub MCP: {len(mcp_tools)} tools loaded.")
         except Exception as e:
             console.print(f"[yellow]⚠[/yellow]  GitHub MCP unavailable: {e}")
     else:
@@ -153,6 +153,10 @@ async def main_async(
                     tokens = TokenUsage()
             finally:
                 hb.cancel()
+                try:
+                    await hb
+                except asyncio.CancelledError:
+                    pass
                 elapsed = time.monotonic() - start
                 if elapsed > 5:
                     console.print(f"  [dim]✓ completed in {elapsed:.1f}s[/dim]")
