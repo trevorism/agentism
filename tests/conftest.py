@@ -1,4 +1,4 @@
-"""Pytest bootstrap for CI-safe defaults and test selection."""
+L"""Pytest bootstrap for CI-safe defaults and test selection."""
 
 from __future__ import annotations
 

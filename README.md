@@ -26,7 +26,7 @@ notepad .env
 uv sync
 
 # 4. Run
-uv run start.py
+uv run python agent.py
 ```
 
 ## Testing
