@@ -153,6 +153,10 @@ async def main_async(
                     tokens = TokenUsage()
             finally:
                 hb.cancel()
+                try:
+                    await hb
+                except asyncio.CancelledError:
+                    pass
                 elapsed = time.monotonic() - start
                 if elapsed > 5:
                     console.print(f"  [dim]✓ completed in {elapsed:.1f}s[/dim]")
