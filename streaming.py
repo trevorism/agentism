@@ -91,10 +91,12 @@ async def probe_tool_calling(model: str) -> bool:
         """Probe tool."""
         return "pong"
 
+    llm = ChatOllama(model=model, base_url=config.OLLAMA_BASE_URL, temperature=0)
     try:
-        llm = ChatOllama(model=model, base_url=config.OLLAMA_BASE_URL, temperature=0)
         bound = llm.bind_tools([_ping])
         resp = await bound.ainvoke([HumanMessage(content="Call _ping.")])
         return bool(getattr(resp, "tool_calls", None))
     except Exception:
         return False
+    finally:
+        await llm.aclose()
