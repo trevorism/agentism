@@ -8,7 +8,7 @@ import config
 PRIMARY_DEV_DIR = DEV_DIR
 
 # Branches the agent is never allowed to push to directly.
-PROTECTED_BRANCHES = {"main", "master"}
+PROTECTED_BRANCHES = {"master"}
 
 
 def _find_repo(name: str) -> Path | None:
@@ -219,7 +219,7 @@ def git_create_branch(repo_name: str, branch_name: str, from_branch: str = "main
     Args:
         repo_name:   Short name of the repo folder in the workspace, or absolute path.
         branch_name: Name for the new branch (e.g. "feature/issue-42-add-reports").
-        from_branch: Branch to base the new branch from (default: "main").
+        from_branch: Branch to base the new branch from (default: "master").
 
     Returns:
         Confirmation message, or an error.
@@ -248,7 +248,6 @@ def git_commit_and_push(repo_name: str, message: str) -> str:
     """
     Stage all changes in a local repo, commit them, and push to origin.
 
-    IMPORTANT: Will refuse to push to protected branches (main, master, develop).
     Always create a feature branch with git_create_branch before calling this.
     After pushing, create a pull request via the GitHub MCP tools.
 

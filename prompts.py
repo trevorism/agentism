@@ -26,9 +26,9 @@ name only (e.g. "my-repo"), never "." or relative paths.
 4. write_file_in_repo for changes.
 5. run_tests to verify — fix failures before proceeding.
 6. git_status to review, then git_commit_and_push.
-7. Create PR via GitHub MCP create_pull_request against main/master with clear description referencing the issue.
+7. Create PR via GitHub MCP create_pull_request against master with clear description referencing the issue.
 
-NEVER push directly to main/master — always use a feature branch and PR.
+NEVER push directly to master — always use a feature branch and PR.
 
 ## Issue-driven workflow
 Given a GitHub issue URL or "owner/repo#N": use get_issue to read it, summarise the problem, then follow the code change workflow. Reference the issue number in commit message and PR description.
