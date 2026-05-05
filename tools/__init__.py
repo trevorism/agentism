@@ -1,40 +1,53 @@
 """Tools package – all custom LangChain tools live here."""
-from tools.shell import run_powershell, list_available_modules
-from tools.web_tool import fetch_url, post_platform_api, get_platform_token, get_platform_api_spec
-from tools.git_tool import (
-    git_clone,
-    git_create_branch,
-    git_commit_and_push,
-    git_status,
-    read_file_in_repo,
-    list_repo_files,
-    write_file_in_repo,
-)
-from tools.test_runner import run_tests
-from tools.code_search import search_local_code
+from __future__ import annotations
 
-LOCAL_TOOLS = [
-    # Shell
-    run_powershell,
-    list_available_modules,
-    # Web / platform
-    get_platform_token,
-    fetch_url,
-    post_platform_api,
-    get_platform_api_spec,
-    # Git / repo
-    git_clone,
-    git_create_branch,
-    read_file_in_repo,
-    list_repo_files,
-    write_file_in_repo,
-    git_status,
-    git_commit_and_push,
-    # Tests
-    run_tests,
-    # Search
-    search_local_code,
-]
+import importlib
+import sys
+from typing import Any
+
+from rich.console import Console
+
+console = Console()
+
+_LOADED_TOOLS: list[Any] = []
+
+
+def _load_tool_module(module_name: str, attr_name: str) -> Any:
+    """Import a single tool attribute with a helpful error message on failure."""
+    try:
+        mod = importlib.import_module(f"tools.{module_name}")
+        return getattr(mod, attr_name)
+    except Exception as e:
+        console.print(
+            f"[red]✗ Failed to load tool from tools/{module_name}.py:[/red] {e}\n"
+            f"  Check that the file has valid syntax and exports '{attr_name}'."
+        )
+        raise
+
+
+# Load each tool module individually so failures are isolated and reported clearly.
+try:
+    _loaded_tools.extend([
+        _load_tool_module("shell", "run_powershell"),
+        _load_tool_module("shell", "list_available_modules"),
+        _load_tool_module("web_tool", "get_platform_token"),
+        _load_tool_module("web_tool", "fetch_url"),
+        _load_tool_module("web_tool", "post_platform_api"),
+        _load_tool_module("web_tool", "get_platform_api_spec"),
+        _load_tool_module("git_tool", "git_clone"),
+        _load_tool_module("git_tool", "git_create_branch"),
+        _load_tool_module("git_tool", "read_file_in_repo"),
+        _load_tool_module("git_tool", "list_repo_files"),
+        _load_tool_module("git_tool", "write_file_in_repo"),
+        _load_tool_module("git_tool", "git_status"),
+        _load_tool_module("git_tool", "git_commit_and_push"),
+        _load_tool_module("test_runner", "run_tests"),
+        _load_tool_module("code_search", "search_local_code"),
+    ])
+except Exception as e:
+    console.print(f"[red]Fatal: Could not load tools. Aborting.[/red] {e}")
+    sys.exit(1)
+
+LOCAL_TOOLS: list[Any] = _loaded_tools
 
 __all__ = ["LOCAL_TOOLS"]
-
