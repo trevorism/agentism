@@ -2,21 +2,6 @@
 
 A local agent (LangGraph + Ollama) that can develop software
 
-## Architecture
-
-```
-start.py                     ← entry point / REPL
-agent.py                     ← bootstrap module used by start.py
-config.py                    ← env-based config
-tools/
-  shell.py                   ← run_powershell
-  web_tool.py                ← fetch_url, post_platform_api
-  git_tool.py                ← git_clone, write_file_in_repo, git_status, git_commit_and_push
-  __init__.py                ← LOCAL_TOOLS list
-memory.db                    ← SQLite file-backed conversation memory (auto-created)
-repos/                       ← cloned repos land here (auto-created)
-```
-
 **GitHub tools** are loaded dynamically at startup via the GitHub MCP server (Node.js process, stdio transport). They include: search code, list/create issues, read/write files, list/create PRs, and more.
 
 ## Prerequisites
