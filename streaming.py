@@ -1,5 +1,6 @@
 """Async streaming helpers for the ReAct agent turn."""
 import asyncio
+import inspect
 
 from langchain_ollama import ChatOllama
 from rich.console import Console
@@ -8,6 +9,17 @@ import config
 from state import TokenUsage, clean_response
 
 console = Console()
+
+
+async def _safe_close_llm(llm) -> None:
+    """Close an LLM if it exposes close hooks across sync/async variants."""
+    close_fn = getattr(llm, "aclose", None) or getattr(llm, "close", None)
+    if not callable(close_fn):
+        return
+
+    result = close_fn()
+    if inspect.isawaitable(result):
+        await result
 
 
 async def _astream_with_chunk_timeout(aiter, timeout_secs: float):
@@ -99,4 +111,4 @@ async def probe_tool_calling(model: str) -> bool:
     except Exception:
         return False
     finally:
-        await llm.aclose()
+        await _safe_close_llm(llm)
