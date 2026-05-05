@@ -53,6 +53,8 @@ _COMMANDS: list[tuple[str, str, bool, str]] = [
     ("retry",   "cmd_retry",   False, "Re-run the last message"),
     ("issue",   "cmd_issue",   False, "Load a GitHub issue mid-session"),
     ("review",  "cmd_review",  False, "Review a pull request diff"),
+    ("pr",      "cmd_pr",      False, "Create a pull request from the current branch"),
+    ("merge",   "cmd_merge",   False, "Merge a pull request"),
     ("exit",    "cmd_exit",    False, "Exit the agent"),
     ("quit",    "cmd_exit",    False, "Exit the agent"),
     ("q",       "cmd_exit",    False, "Exit the agent"),
@@ -182,6 +184,32 @@ class ReplCommands:
             return pr_fn(" ".join(args))
         console.print("Usage: !review <PR URL or owner/repo#N>")
         return None
+
+    def cmd_pr(self, args: list) -> str | None:
+        """Create a pull request from the current feature branch."""
+        if len(args) < 2:
+            console.print("Usage: !pr <owner/repo> <title> [body]")
+            return None
+        repo = args[0]
+        title = args[1]
+        body = " ".join(args[2:]) if len(args) > 2 else ""
+        return (
+            f"Please create a pull request for the current feature branch to 'master' in {repo}.\n"
+            f"Title: {title}\n"
+            f"Body: {body}\n"
+            f"Use the GitHub MCP tools (create_pull_request) to do this."
+        )
+
+    def cmd_merge(self, args: list) -> str | None:
+        """Merge a pull request."""
+        if not args:
+            console.print("Usage: !merge <owner/repo#N>")
+            return None
+        ref = args[0]
+        return (
+            f"Please merge the pull request {ref} using the GitHub MCP tools (merge_pull_request).\n"
+            f"Use the default merge method (merge commit) unless the PR has specific requirements."
+        )
 
     def cmd_exit(self) -> str:
         console.print("[dim]Goodbye.[/dim]")
