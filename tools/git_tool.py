@@ -215,7 +215,7 @@ def git_status(repo_name: str) -> str:
 
 
 @tool
-def git_create_branch(repo_name: str, branch_name: str, from_branch: str = "main") -> str:
+def git_create_branch(repo_name: str, branch_name: str, from_branch: str = "master") -> str:
     """
     Create and checkout a new feature branch in a local repository.
 
