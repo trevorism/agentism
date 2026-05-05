@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass
 
 GITHUB_PARAMETER_HINTS = {
@@ -37,6 +38,40 @@ def is_github_tool_name(name: str) -> bool:
     return name in GITHUB_PARAMETER_HINTS or name.startswith("github_")
 
 
+def _extract_param_hints(tool) -> list[str]:
+    """Extract parameter names from a tool's signature or schema."""
+    # Try args_schema first (LangChain structured tools)
+    schema = getattr(tool, "args_schema", None)
+    if schema is not None:
+        try:
+            props = schema.schema().get("properties", {})
+            return list(props.keys())
+        except Exception:
+            pass
+
+    # Fall back to inspecting the underlying function
+    func = getattr(tool, "func", None)
+    if func is None:
+        func = getattr(tool, "_tool", None)
+    if func is None:
+        func = getattr(tool, "bound_method", None)
+    if func is None:
+        func = getattr(tool, "func", None)
+
+    if func is not None:
+        try:
+            sig = inspect.signature(func)
+            params = list(sig.parameters.keys())
+            # Remove 'self' if present
+            if params and params[0] == "self":
+                params = params[1:]
+            return params
+        except (ValueError, TypeError):
+            pass
+
+    return []
+
+
 def iter_tool_metadata(all_tools: list) -> list[ToolMetadata]:
     """Return tool metadata preserving original order and duplicates."""
     return [
@@ -69,3 +104,21 @@ def unique_sorted_tool_metadata(all_tools: list) -> list[ToolMetadata]:
             seen[item.name] = item
     return [seen[name] for name in sorted(seen)]
 
+
+def get_param_hints_for_tools(all_tools: list) -> dict[str, list[str]]:
+    """Dynamically extract parameter hints from the actual tool definitions.
+
+    Returns a dict mapping tool names to their parameter names, falling back to
+    the static GITHUB_PARAMETER_HINTS for any tool where extraction fails.
+    """
+    hints: dict[str, list[str]] = {}
+    for tool in all_tools:
+        name = tool_name(tool)
+        if name not in hints:
+            extracted = _extract_param_hints(tool)
+            if extracted:
+                hints[name] = extracted
+            else:
+                # Fall back to static hints
+                hints[name] = GITHUB_PARAMETER_HINTS.get(name, [])
+    return hints
