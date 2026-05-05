@@ -7,6 +7,8 @@ import httpx
 import pytest
 from config import OLLAMA_BASE_URL, OLLAMA_MODEL
 
+pytestmark = pytest.mark.integration
+
 
 class TestOllama:
     def test_ollama_api_reachable(self):
@@ -93,4 +95,3 @@ class TestPowerShellModules:
             f"Importing module '{first_module}' produced an unexpected error:\n{result}"
         )
         print(f"\nSuccessfully imported: {first_module} → {result.strip()}")
-

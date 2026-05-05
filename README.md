@@ -29,6 +29,19 @@ uv sync
 uv run start.py
 ```
 
+## Testing
+
+By default, pytest skips integration tests (the ones that require local services,
+credentials, or machine-specific setup). This keeps CI independent from `.env`.
+
+```powershell
+# Default (unit/CI-safe tests)
+uv run pytest
+
+# Integration tests only (requires local setup + valid .env)
+uv run pytest -o addopts='' -m integration
+```
+
 ## Configuration (`.env`)
 
 | Variable | Default | Description |

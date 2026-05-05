@@ -1,8 +1,11 @@
 """
 Level 2 Smoke Tests – Platform authentication and GitHub cmdlet integration.
 """
+import pytest
 from tools.shell import run_powershell
 from tools.web_tool import _acquire_token
+
+pytestmark = pytest.mark.integration
 
 
 class TestPlatformToken:
@@ -20,13 +23,16 @@ class TestPlatformToken:
         t2 = _acquire_token()
         assert t1 and t2, "One of the two token calls returned empty"
 
+
 class TestAddGithubRepository:
     def test_cmdlet_help_is_readable(self):
         """Get-Help Add-GithubRepository returns syntax including required params."""
-        result = run_powershell.invoke({
-            "command": "Get-Help Add-GithubRepository -Full",
-            "import_modules": ["Github"],
-        })
+        result = run_powershell.invoke(
+            {
+                "command": "Get-Help Add-GithubRepository -Full",
+                "import_modules": ["Github"],
+            }
+        )
         assert "Add-GithubRepository" in result, (
             f"Cmdlet not found in help output:\n{result}"
         )
@@ -40,10 +46,12 @@ class TestAddGithubRepository:
 
     def test_cmdlet_parameters_are_correct(self):
         """Verify serviceName is required and token is optional per the help."""
-        result = run_powershell.invoke({
-            "command": "Get-Help Add-GithubRepository -Full",
-            "import_modules": ["Github"],
-        })
+        result = run_powershell.invoke(
+            {
+                "command": "Get-Help Add-GithubRepository -Full",
+                "import_modules": ["Github"],
+            }
+        )
         # serviceName must be required
         service_name_block = result[result.find("serviceName"):]
         assert "Required?                    true" in service_name_block, (
