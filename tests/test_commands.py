@@ -91,3 +91,69 @@ async def test_dispatch_thread_passes_args_and_updates_state():
     assert state.thread_id == "feature-x"
 
 
+# -- New tests for !pr and !merge --
+
+def test_cmd_pr_requires_args():
+    repl = ReplCommands(
+        state=_state(),
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+    result = repl.cmd_pr([])
+    assert result is None
+
+
+def test_cmd_pr_with_minimal_args():
+    repl = ReplCommands(
+        state=_state(),
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+    result = repl.cmd_pr(["owner/repo", "feat: add feature"])
+    assert result is not None
+    assert "owner/repo" in result
+    assert "feat: add feature" in result
+    assert "create a pull request" in result.lower()
+    assert "master" in result
+
+
+def test_cmd_pr_with_body():
+    repl = ReplCommands(
+        state=_state(),
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+    result = repl.cmd_pr(["owner/repo", "feat: add feature", "This is the body"])
+    assert "This is the body" in result
+
+
+def test_cmd_merge_requires_args():
+    repl = ReplCommands(
+        state=_state(),
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+    result = repl.cmd_merge([])
+    assert result is None
+
+
+def test_cmd_merge_with_ref():
+    repl = ReplCommands(
+        state=_state(),
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+    result = repl.cmd_merge(["owner/repo#42"])
+    assert result is not None
+    assert "owner/repo#42" in result
+    assert "merge" in result.lower()
+
+
+def test_cmd_pr_in_command_list():
+    cmd_names = [c[0] for c in commands._COMMANDS]
+    assert "pr" in cmd_names
+
+
+def test_cmd_merge_in_command_list():
+    cmd_names = [c[0] for c in commands._COMMANDS]
+    assert "merge" in cmd_names
