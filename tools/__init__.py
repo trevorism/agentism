@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import importlib
-import sys
 from typing import Any
 
 from rich.console import Console
@@ -27,7 +26,7 @@ def _load_tool_module(module_name: str, attr_name: str) -> Any:
 
 # Load each tool module individually so failures are isolated and reported clearly.
 try:
-    _loaded_tools.extend([
+    _LOADED_TOOLS.extend([
         _load_tool_module("shell", "run_powershell"),
         _load_tool_module("shell", "list_available_modules"),
         _load_tool_module("web_tool", "get_platform_token"),
@@ -45,9 +44,9 @@ try:
         _load_tool_module("code_search", "search_local_code"),
     ])
 except Exception as e:
-    console.print(f"[red]Fatal: Could not load tools. Aborting.[/red] {e}")
-    sys.exit(1)
+    console.print(f"[red]Fatal: Could not load tools.[/red] {e}")
+    raise RuntimeError("Could not load tools") from e
 
-LOCAL_TOOLS: list[Any] = _loaded_tools
+LOCAL_TOOLS: list[Any] = _LOADED_TOOLS
 
 __all__ = ["LOCAL_TOOLS"]
