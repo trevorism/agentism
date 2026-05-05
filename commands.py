@@ -10,6 +10,7 @@ from rich.text import Text
 
 import config
 from state import AgentState
+from tool_metadata import render_tool_table_rows
 
 console = Console()
 
@@ -59,8 +60,8 @@ class ReplCommands:
         table.add_column("#", style="dim", width=3)
         table.add_column("Name", style="bold cyan", no_wrap=True)
         table.add_column("Description")
-        for i, t in enumerate(self.all_tools, 1):
-            table.add_row(str(i), t.name, (t.description or "").split("\n")[0][:100])
+        for row in render_tool_table_rows(self.all_tools):
+            table.add_row(*row)
         console.print(table)
 
     def cmd_history(self, args: list):

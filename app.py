@@ -14,7 +14,7 @@ from rich.prompt import Prompt
 
 import config
 from commands import ReplCommands, clear_thread
-from prompts import SYSTEM_PROMPT, issue_ref_to_prompt, pr_ref_to_prompt
+from prompts import build_system_prompt, issue_ref_to_prompt, pr_ref_to_prompt
 from state import AgentState, TokenUsage
 from streaming import probe_tool_calling, run_agent_turn
 from tools import LOCAL_TOOLS
@@ -90,7 +90,7 @@ async def main_async(
                 return create_react_agent(
                     llm,
                     tools=tool_node,
-                    prompt=SYSTEM_PROMPT,
+                    prompt=build_system_prompt(all_tools),
                     checkpointer=checkpointer,
                 )
 
