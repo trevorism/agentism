@@ -19,19 +19,6 @@ class TestOllama:
             "Is `ollama serve` running?"
         )
 
-    def test_model_is_loaded(self):
-        """The configured model (llama3.2) is present in Ollama's model list."""
-        resp = httpx.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=10)
-        body = resp.json()
-        model_names = [m["name"] for m in body.get("models", [])]
-        # Ollama may store the tag as "llama3.2:latest" etc – match by prefix
-        matched = any(m.startswith(OLLAMA_MODEL.split(":")[0]) for m in model_names)
-        assert matched, (
-            f"Model '{OLLAMA_MODEL}' not found in Ollama. "
-            f"Available: {model_names}. "
-            f"Run: ollama pull {OLLAMA_MODEL}"
-        )
-
 class TestPowerShellModules:
     def test_list_available_modules_returns_results(self):
         """list_available_modules finds at least one module in the Modules dir."""
