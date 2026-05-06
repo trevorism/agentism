@@ -70,7 +70,7 @@ async def main_async(
     initial_thread: str = "main",
     batch_issues: list | None = None,
     debug: bool = False,
-    chunk_timeout: float = 600.0,
+    chunk_timeout: float = 1200.0,
 ) -> None:
     print_welcome()
     mcp_client = None

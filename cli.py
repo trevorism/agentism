@@ -16,8 +16,8 @@ def parse_args() -> argparse.Namespace:
                         help="Preview writes/commits without making real changes")
     parser.add_argument("--debug", action="store_true",
                         help="Print raw LangGraph chunk keys each turn for debugging")
-    parser.add_argument("--chunk-timeout", metavar="SECS", type=float, default=600.0,
-                        help="Seconds to wait for each model chunk before giving up (default: 600)")
+    parser.add_argument("--chunk-timeout", metavar="SECS", type=float, default=1200.0,
+                        help="Seconds to wait for each model chunk before giving up (default: 1200)")
     return parser.parse_args()
 
 

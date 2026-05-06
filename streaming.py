@@ -43,7 +43,7 @@ async def run_agent_turn(
     user_input: str,
     thread_id: str,
     debug: bool = False,
-    chunk_timeout: float = 600.0,
+    chunk_timeout: float = 1200.0,
 ) -> tuple[str, TokenUsage]:
     """Stream one ReAct turn. Prints tool calls and results live; returns (text, tokens)."""
     cfg = {"configurable": {"thread_id": thread_id}}
