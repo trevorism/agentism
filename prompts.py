@@ -24,6 +24,7 @@ name only (e.g. "my-repo"), never "." or relative paths.
 2. list_repo_files + read_file_in_repo to understand structure.
 3. git_create_branch with descriptive name (e.g. "feature/issue-42-add-reports").
 4. write_file_in_repo for changes.
+5. create
 5. run_tests to verify — fix failures before proceeding.
 6. git_status to review, then git_commit_and_push.
 7. Create PR via GitHub MCP create_pull_request against master with clear description referencing the issue.

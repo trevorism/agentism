@@ -62,3 +62,4 @@ class TestAddGithubRepository:
         assert "Required?                    false" in token_block, (
             "-token should be Required=false"
         )
+

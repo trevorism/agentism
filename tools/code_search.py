@@ -4,6 +4,11 @@ import re
 from pathlib import Path
 from langchain_core.tools import tool
 from config import DEV_DIR
+from tools.discovery_filters import (
+    rg_allow_globs,
+    rg_exclude_globs,
+    should_ignore_relative_path,
+)
 
 
 def _rg_available() -> bool:
@@ -21,11 +26,14 @@ def _search_with_rg(pattern: str, search_root: Path, file_glob: str, max_results
         "--line-number",
         "--color=never",
         f"--max-count={max_results}",
-        "--glob", "!.git/**",
-        "--glob", file_glob,
         pattern,
         str(search_root),
     ]
+    for exclusion in rg_exclude_globs():
+        args.extend(["--glob", exclusion])
+    for inclusion in rg_allow_globs():
+        args.extend(["--glob", inclusion])
+    args.extend(["--glob", file_glob])
     proc = subprocess.run(args, capture_output=True, text=True, timeout=30)
     output = proc.stdout.strip()
     if not output and proc.stderr.strip():
@@ -43,14 +51,12 @@ def _search_python_fallback(pattern: str, search_root: Path, file_glob: str, max
     for filepath in sorted(search_root.rglob(file_glob)):
         if not filepath.is_file():
             continue
-        # Skip common noise directories
-        parts = set(filepath.parts)
-        if parts & {".git", "node_modules", ".gradle", "build", "__pycache__", ".venv"}:
+        rel = filepath.relative_to(search_root)
+        if should_ignore_relative_path(rel):
             continue
         try:
             for lineno, line in enumerate(filepath.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
                 if compiled.search(line):
-                    rel = filepath.relative_to(search_root)
                     matches.append(f"{rel}:{lineno}: {line.strip()}")
                     if len(matches) >= max_results:
                         matches.append(f"… (stopped at {max_results} results)")

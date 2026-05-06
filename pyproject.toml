@@ -22,7 +22,7 @@ asyncio_mode = "auto"
 testpaths = ["tests"]
 log_cli = true
 log_cli_level = "WARNING"
-addopts = "-m 'not integration'"
+addopts = "-m 'not integration' --basetemp=.pytest_tmp"
 markers = [
     "integration: tests that require local services, credentials, or machine-specific setup",
 ]

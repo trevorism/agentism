@@ -82,3 +82,4 @@ class TestPowerShellModules:
             f"Importing module '{first_module}' produced an unexpected error:\n{result}"
         )
         print(f"\nSuccessfully imported: {first_module} → {result.strip()}")
+

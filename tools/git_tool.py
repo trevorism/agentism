@@ -1,8 +1,8 @@
-"""Git tools – clone repos, write files, commit, and push using GitPython."""
-from pathlib import Path
+"""Git-only tools – clone repos, inspect status, branch, commit, and push."""
 from langchain_core.tools import tool
 from config import WORKSPACE_DIR, DEV_DIR
 import config
+from tools.repo_paths import find_repo, repo_path
 
 # Primary dev directory – pre-existing checkouts are found here before cloning.
 PRIMARY_DEV_DIR = DEV_DIR
@@ -11,60 +11,14 @@ PRIMARY_DEV_DIR = DEV_DIR
 PROTECTED_BRANCHES = {"master"}
 
 
-def _find_repo(name: str) -> Path | None:
-    """
-    Search DEV_DIR for a directory named `name`.
-
-    Checks two levels deep so repos nested under subdirectories
-    are found alongside top-level ones.
-    Returns the first match, or None if not found.
-    """
-    if not DEV_DIR or not DEV_DIR.exists():
-        return None
-
-    # Level 1 – DEV_DIR/<name>
-    candidate = DEV_DIR / name
-    if candidate.exists():
-        return candidate
-
-    # Level 2 – DEV_DIR/<subdir>/<name>
-    try:
-        for subdir in DEV_DIR.iterdir():
-            if subdir.is_dir() and not subdir.name.startswith("."):
-                candidate = subdir / name
-                if candidate.exists():
-                    return candidate
-    except PermissionError:
-        pass
-
-    return None
+def _find_repo(name: str):
+    """Backward-compatible wrapper for existing tests/imports."""
+    return find_repo(name)
 
 
-def _repo_path(repo_name: str) -> Path:
-    """
-    Resolve the local path for a repo.
-
-    Resolution order:
-      1. Absolute paths are used as-is.
-      2. DEV_DIR/<repo_name>          – direct child of primary dev directory.
-      3. DEV_DIR/<subdir>/<repo_name>  – one level nested.
-      4. WORKSPACE_DIR/<repo_name>     – agent-managed clones.
-
-    Raises ValueError if repo_name is '.' or empty — the agent must supply
-    the actual repository folder name, not a relative path placeholder.
-    """
-    if not repo_name or repo_name.strip() in (".", ".."):
-        raise ValueError(
-            "repo_name must be the repository folder name (e.g. 'my-repo'), "
-            "not '.' or empty. Use list_repo_files with the actual repo name."
-        )
-    p = Path(repo_name)
-    if p.is_absolute():
-        return p
-    found = _find_repo(repo_name)
-    if found:
-        return found
-    return WORKSPACE_DIR / repo_name
+def _repo_path(repo_name: str):
+    """Backward-compatible wrapper for existing tests/imports."""
+    return repo_path(repo_name)
 
 
 @tool
@@ -88,7 +42,7 @@ def git_clone(repo_url: str, local_name: str = "") -> str:
 
     name = local_name or repo_url.rstrip("/").split("/")[-1].removesuffix(".git")
 
-    found = _find_repo(name)
+    found = find_repo(name)
     if found:
         return f"Found existing checkout at {found} – using that."
 
@@ -104,89 +58,6 @@ def git_clone(repo_url: str, local_name: str = "") -> str:
     except git.GitCommandError as e:
         return f"Clone failed: {e}"
 
-
-@tool
-def read_file_in_repo(repo_name: str, relative_path: str) -> str:
-    """
-    Read the full contents of a file inside a local repository.
-
-    Always use this to inspect existing source files before modifying them.
-    Never assume file contents – read first, then write.
-
-    Args:
-        repo_name:     Repo folder name (located in DEV_DIR automatically), or absolute path.
-        relative_path: Path inside the repo (e.g. src/main/groovy/MyService.groovy).
-
-    Returns:
-        Full file contents as text, or an error message.
-    """
-    target = _repo_path(repo_name) / relative_path
-    if not target.exists():
-        return f"File not found: {target}"
-    if not target.is_file():
-        return f"Path is not a file: {target}"
-    try:
-        return target.read_text(encoding="utf-8", errors="replace")
-    except Exception as e:
-        return f"Error reading file: {e}"
-
-
-@tool
-def list_repo_files(repo_name: str, subdir: str = "", pattern: str = "*") -> str:
-    """
-    List files in a local repository directory, optionally filtered by glob pattern.
-
-    .git internals are always excluded to keep output focused on source files.
-
-    Use this to understand repo structure before reading or writing files.
-    Never assume what files exist – list them first.
-
-    Args:
-        repo_name: Short name of the repo folder (checked in DEV_DIR first), or absolute path.
-        subdir:    Subdirectory inside the repo to list (default: repo root).
-        pattern:   Glob pattern to filter results (default: "*" for all files).
-                   Use "**/*.groovy" for recursive Groovy files, "*.json" for JSON, etc.
-
-    Returns:
-        Newline-separated relative file paths, or an error message.
-    """
-    root = _repo_path(repo_name)
-    search_dir = root / subdir if subdir else root
-    if not search_dir.exists():
-        return f"Directory not found: {search_dir}"
-    try:
-        files = sorted(search_dir.glob(pattern))
-        visible_files = [
-            f for f in files
-            if f.is_file() and ".git" not in f.relative_to(root).parts
-        ]
-        if not visible_files:
-            return f"No files matching '{pattern}' in {search_dir}"
-        return "\n".join(str(f.relative_to(root)) for f in visible_files)
-    except Exception as e:
-        return f"Error listing files: {e}"
-
-
-@tool
-def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
-    """
-    Write (create or overwrite) a file inside a local repo.
-
-    Args:
-        repo_name:     Short name of the repo folder in the workspace, or absolute path.
-        relative_path: Path inside the repo (e.g. src/MyService.groovy).
-        content:       Full text content to write.
-
-    Returns:
-        Confirmation message with the file path written.
-    """
-    target = _repo_path(repo_name) / relative_path
-    if config.DRY_RUN:
-        preview = content[:200] + ("…" if len(content) > 200 else "")
-        return f"[DRY-RUN] Would write {len(content)} chars to: {target}\nPreview:\n{preview}"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
-    return f"Written: {target}"
 
 
 @tool
