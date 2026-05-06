@@ -231,7 +231,11 @@ async def main_async(
                     result = await commands.dispatch(user_input, issue_ref_to_prompt, pr_ref_to_prompt)
                     if result == "exit":
                         break
-                    if isinstance(result, str):
+                    if isinstance(result, Panel):
+                        console.print()
+                        console.print(result)
+                        console.print()
+                    elif isinstance(result, str):
                         console.print()
                         await run_turn(result)
                     continue

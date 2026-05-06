@@ -55,6 +55,7 @@ _COMMANDS: list[tuple[str, str, bool, str]] = [
     ("review",  "cmd_review",  False, "Review a pull request diff"),
     ("pr",      "cmd_pr",      False, "Create a pull request from the current branch"),
     ("merge",   "cmd_merge",   False, "Merge a pull request"),
+    ("health",  "cmd_health",  True,  "Run runtime health diagnostics"),
     ("exit",    "cmd_exit",    False, "Exit the agent"),
     ("quit",    "cmd_exit",    False, "Exit the agent"),
     ("q",       "cmd_exit",    False, "Exit the agent"),
@@ -210,6 +211,12 @@ class ReplCommands:
             f"Please merge the pull request {ref} using the GitHub MCP tools (merge_pull_request).\n"
             f"Use the default merge method (merge commit) unless the PR has specific requirements."
         )
+
+    async def cmd_health(self) -> Panel:
+        """Run runtime health diagnostics and return a Rich panel."""
+        from tools.health import run_health_checks, render_health_report
+        checks = await run_health_checks(active_model=self.state.model)
+        return render_health_report(checks)
 
     def cmd_exit(self) -> str:
         console.print("[dim]Goodbye.[/dim]")
