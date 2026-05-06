@@ -13,9 +13,9 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-import config
-from state import AgentState
-from tool_metadata import render_tool_table_rows
+from agentism import config
+from agentism.state import AgentState
+from agentism.tool_metadata import render_tool_table_rows
 
 console = Console()
 
@@ -257,3 +257,4 @@ class ReplCommands:
             result = await result
 
         return result
+

@@ -3,7 +3,7 @@ import subprocess
 import time
 from urllib.parse import urlparse
 from langchain_core.tools import tool
-from config import PLATFORM_BASE_URL, TREVORISM_TENANT_GUID, TREVORISM_USERNAME, TREVORISM_PASSWORD, PS_MODULE_PATH
+from agentism.config import PLATFORM_BASE_URL, TREVORISM_TENANT_GUID, TREVORISM_USERNAME, TREVORISM_PASSWORD, PS_MODULE_PATH
 import httpx
 
 # Derive the platform hostname once so no org-specific string is hardcoded here.

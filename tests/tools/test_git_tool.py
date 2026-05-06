@@ -26,3 +26,4 @@ def test_git_create_branch_rejects_protected_name_without_git_calls(monkeypatch)
 
     assert "protected branch name" in result
 
+

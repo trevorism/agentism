@@ -1,6 +1,6 @@
 import pytest
 
-import app
+from agentism import app
 
 
 @pytest.mark.asyncio

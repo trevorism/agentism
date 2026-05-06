@@ -298,3 +298,4 @@ async def test_run_health_checks_passes_active_model_override():
     assert len(results) == 7
     assert all(isinstance(r, HealthCheck) for r in results)
     mock_ollama.assert_awaited_once_with("qwen3.6")
+

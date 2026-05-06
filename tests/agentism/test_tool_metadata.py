@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from tool_metadata import (
+from agentism.tool_metadata import (
     GITHUB_PARAMETER_HINTS,
     is_github_tool_name,
     iter_tool_metadata,

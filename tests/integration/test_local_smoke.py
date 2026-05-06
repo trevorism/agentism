@@ -5,7 +5,7 @@ Level 1 Smoke Tests – Local connectivity only, no network calls, no git side-e
 import re
 import httpx
 import pytest
-from config import OLLAMA_BASE_URL, OLLAMA_MODEL
+from agentism.config import OLLAMA_BASE_URL, OLLAMA_MODEL
 
 pytestmark = pytest.mark.integration
 
@@ -57,7 +57,7 @@ class TestPowerShellModules:
     def test_module_path_injected_into_psmodulepath(self):
         """The configured PS_MODULE_PATH is visible inside the pwsh session."""
         from tools.shell import run_powershell
-        from config import PS_MODULE_PATH
+        from agentism.config import PS_MODULE_PATH
         result = run_powershell.invoke({
             "command": "$env:PSModulePath -split ';' | Where-Object { $_ -ne '' }"
         })

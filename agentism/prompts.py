@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from tool_metadata import GITHUB_PARAMETER_HINTS, unique_sorted_tool_metadata
+from agentism.tool_metadata import GITHUB_PARAMETER_HINTS, unique_sorted_tool_metadata
 
 BASE_SYSTEM_PROMPT = """You are a senior software engineer agent on a platform with: Groovy/Micronaut backend, PowerShell client, Vue frontend, Groovy/Vitest/Cucumber tests, and GitHub-hosted code.
 
@@ -115,3 +115,4 @@ def pr_ref_to_prompt(ref: str) -> str:
         "Provide: (1) a summary of changes, (2) specific feedback on correctness, "
         "best practices, and missing tests, (3) overall recommendation (approve / request changes)."
     )
+

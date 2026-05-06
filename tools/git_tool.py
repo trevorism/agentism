@@ -1,7 +1,7 @@
 """Git-only tools – clone repos, inspect status, branch, commit, and push."""
 from langchain_core.tools import tool
-from config import WORKSPACE_DIR, DEV_DIR
-import config
+from agentism.config import WORKSPACE_DIR, DEV_DIR
+from agentism import config
 from tools.repo_paths import find_repo, repo_path
 
 # Primary dev directory – pre-existing checkouts are found here before cloning.
@@ -57,7 +57,6 @@ def git_clone(repo_url: str, local_name: str = "") -> str:
         return f"Cloned to {workspace}"
     except git.GitCommandError as e:
         return f"Clone failed: {e}"
-
 
 
 @tool

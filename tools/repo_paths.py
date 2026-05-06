@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from config import DEV_DIR, WORKSPACE_DIR
+from agentism.config import DEV_DIR, WORKSPACE_DIR
 
 
 def find_repo(name: str) -> Path | None:

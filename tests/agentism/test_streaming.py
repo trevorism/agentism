@@ -1,6 +1,6 @@
 import pytest
 
-import streaming
+from agentism import streaming
 
 
 class _Bound:
@@ -72,4 +72,5 @@ async def test_probe_tool_calling_ignores_missing_close(monkeypatch):
     ok = await streaming.probe_tool_calling("test-model")
 
     assert ok is False
+
 

@@ -2,7 +2,7 @@
 import subprocess
 from pathlib import Path
 from langchain_core.tools import tool
-from config import DEV_DIR, WORKSPACE_DIR
+from agentism.config import DEV_DIR, WORKSPACE_DIR
 
 
 def _repo_path(repo_name: str) -> Path:

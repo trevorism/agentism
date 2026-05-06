@@ -1,7 +1,7 @@
 """PowerShell execution tool – lets the agent run commands on the local Windows host."""
 import subprocess
 from langchain_core.tools import tool
-from config import PS_MODULE_PATH
+from agentism.config import PS_MODULE_PATH
 
 _PREAMBLE = rf"$env:PSModulePath = $env:PSModulePath + ';{PS_MODULE_PATH}'; "
 
@@ -66,6 +66,5 @@ def list_available_modules() -> str:
         if item.is_dir() or item.name.endswith((".psm1", ".psd1"))
     ]
     return "\n".join(sorted(modules)) if modules else f"No modules found under {PS_MODULE_PATH}"
-
 
 

@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from prompts import BASE_SYSTEM_PROMPT, build_system_prompt
+from agentism.prompts import BASE_SYSTEM_PROMPT, build_system_prompt
 
 
 def _tool(name: str, description: str = ""):
@@ -52,3 +52,4 @@ def test_build_system_prompt_groups_github_tools_compactly():
     assert "GitHub MCP tools available:" in prompt
     assert "search_repositories" in prompt
     assert "github_extra_tool" in prompt
+

@@ -1,7 +1,7 @@
 """Repository file tools: read, list, create, and write files."""
 from __future__ import annotations
 
-import config
+from agentism import config
 from langchain_core.tools import tool
 
 from tools.discovery_filters import should_ignore_relative_path

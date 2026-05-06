@@ -3,7 +3,7 @@ import subprocess
 import re
 from pathlib import Path
 from langchain_core.tools import tool
-from config import DEV_DIR
+from agentism.config import DEV_DIR
 from tools.discovery_filters import (
     rg_allow_globs,
     rg_exclude_globs,
@@ -97,7 +97,7 @@ def search_local_code(
         Matching lines with file paths and line numbers, or "No matches found".
     """
     if repo_name:
-        from config import WORKSPACE_DIR
+        from agentism.config import WORKSPACE_DIR
         p = Path(repo_name)
         if p.is_absolute():
             search_root = p

@@ -122,3 +122,4 @@ def get_param_hints_for_tools(all_tools: list) -> dict[str, list[str]]:
                 # Fall back to static hints
                 hints[name] = GITHUB_PARAMETER_HINTS.get(name, [])
     return hints
+

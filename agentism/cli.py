@@ -36,3 +36,4 @@ def startup_plan(args: argparse.Namespace, issue_prompt_fn):
         initial_prompt = issue_prompt_fn(args.issue)
 
     return initial_prompt, batch_issues
+

@@ -5,9 +5,9 @@ import pytest
 from rich.console import Console
 from rich.panel import Panel
 
-import commands
-from commands import ReplCommands
-from state import AgentState
+from agentism import commands
+from agentism.commands import ReplCommands
+from agentism.state import AgentState
 
 
 def _tool(name: str, description: str = ""):

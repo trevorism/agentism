@@ -13,11 +13,11 @@ from rich.markdown import Markdown
 from rich.panel import Panel
 from rich.prompt import Prompt
 
-import config
-from commands import ReplCommands, clear_thread
-from prompts import build_system_prompt, issue_ref_to_prompt, pr_ref_to_prompt
-from state import AgentState, TokenUsage
-from streaming import probe_tool_calling, run_agent_turn
+from agentism import config
+from agentism.commands import ReplCommands, clear_thread
+from agentism.prompts import build_system_prompt, issue_ref_to_prompt, pr_ref_to_prompt
+from agentism.state import AgentState, TokenUsage
+from agentism.streaming import probe_tool_calling, run_agent_turn
 from tools import LOCAL_TOOLS
 
 console = Console()
@@ -242,3 +242,4 @@ async def main_async(
                 await run_turn(user_input)
     finally:
         await _safe_close_async(mcp_client)
+

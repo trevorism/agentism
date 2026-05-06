@@ -5,8 +5,8 @@ import inspect
 from langchain_ollama import ChatOllama
 from rich.console import Console
 
-import config
-from state import TokenUsage, clean_response
+from agentism import config
+from agentism.state import TokenUsage, clean_response
 
 console = Console()
 
@@ -112,3 +112,4 @@ async def probe_tool_calling(model: str) -> bool:
         return False
     finally:
         await _safe_close_llm(llm)
+
