@@ -1,7 +1,9 @@
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 from rich.console import Console
+from rich.panel import Panel
 
 import commands
 from commands import ReplCommands
@@ -157,3 +159,26 @@ def test_cmd_pr_in_command_list():
 def test_cmd_merge_in_command_list():
     cmd_names = [c[0] for c in commands._COMMANDS]
     assert "merge" in cmd_names
+
+
+@pytest.mark.asyncio
+async def test_cmd_health_uses_active_state_model(monkeypatch):
+    state = _state()
+    state.model = "qwen3.6"
+    repl = ReplCommands(
+        state=state,
+        all_tools=[],
+        build_agent_fn=lambda model_name: object(),
+    )
+
+    mock_run = AsyncMock(return_value=[])
+    mock_render = lambda checks: Panel("ok")
+
+    monkeypatch.setattr("tools.health.run_health_checks", mock_run)
+    monkeypatch.setattr("tools.health.render_health_report", mock_render)
+
+    result = await repl.cmd_health()
+
+    assert isinstance(result, Panel)
+    mock_run.assert_awaited_once_with(active_model="qwen3.6")
+
