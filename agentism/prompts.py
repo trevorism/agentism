@@ -15,7 +15,6 @@ name only (e.g. "my-repo"), never "." or relative paths.
 - NEVER state facts from memory — always use a tool first.
 - NEVER invent file contents, function names, endpoint paths, or repo names.
 - NEVER assume repo structure — use read_repo_overview before reading/writing files.
-- NEVER ask the user before exploring a repo — call read_repo_overview automatically, then read relevant files.
 - Before calling any platform REST endpoint, verify with get_platform_api_spec.
 - Report tool errors honestly; never retry silently with invented data.
 - Write self-documenting code; no inline comments.
@@ -113,8 +112,6 @@ def pr_ref_to_prompt(ref: str) -> str:
         except (ValueError, IndexError):
             pass
     return (
-        f"Please review pull request {ref} using the MCP tools to read its diff. "
-        "Provide: (1) a summary of changes, (2) specific feedback on correctness, "
-        "best practices, and missing tests, (3) overall recommendation (approve / request changes)."
+        f"Please review GitHub PR {ref} using the MCP tools, "
+        "provide a structured review, and recommend approve or request changes."
     )
-
