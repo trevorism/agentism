@@ -1,6 +1,8 @@
+from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import patch
 
-from agentism.prompts import BASE_SYSTEM_PROMPT, build_system_prompt, issue_ref_to_prompt
+from agentism.prompts import BASE_SYSTEM_PROMPT, build_system_prompt, issue_ref_to_prompt, load_knowledge
 
 
 def _tool(name: str, description: str = ""):
@@ -62,6 +64,25 @@ def test_base_system_prompt_requires_autonomous_repo_reads_and_tool_chaining():
     assert 'NEVER stop after saying "I will inspect/read/look at ..."' in BASE_SYSTEM_PROMPT
 
 
+def test_base_system_prompt_defers_domain_knowledge_to_knowledge_section():
+    # Domain content should NOT be hardcoded in BASE; it belongs in knowledge files.
+    assert "Groovy/Micronaut backend" not in BASE_SYSTEM_PROMPT
+    assert "Prefer Groovy idioms" not in BASE_SYSTEM_PROMPT
+    # BASE should reference the Platform knowledge section instead.
+    assert "Platform knowledge" in BASE_SYSTEM_PROMPT
+
+
+def test_base_system_prompt_platform_api_tool_chain_is_a_critical_rule():
+    # Calling platform APIs is a behavioral constraint, not just a convention.
+    assert "get_platform_api_spec" in BASE_SYSTEM_PROMPT
+    assert "get_platform_token" in BASE_SYSTEM_PROMPT
+
+
+def test_base_system_prompt_workflow_references_knowledge_for_conventions():
+    # Workflow steps should delegate naming/format details to knowledge files, not re-specify them.
+    assert "Platform knowledge" in BASE_SYSTEM_PROMPT
+
+
 def test_issue_ref_to_prompt_requires_repo_overview_without_permission_prompt():
     prompt = issue_ref_to_prompt("owner/repo#42")
 
@@ -69,5 +90,65 @@ def test_issue_ref_to_prompt_requires_repo_overview_without_permission_prompt():
     assert "read_repo_overview" in prompt
     assert "read_file_in_repo" in prompt
     assert "without asking for permission" in prompt
+
+
+def test_load_knowledge_returns_empty_when_no_directory(tmp_path):
+    import agentism.prompts as prompts_mod
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path / "missing"):
+        result = load_knowledge()
+    assert result == ""
+
+
+def test_load_knowledge_reads_and_joins_markdown_files(tmp_path):
+    (tmp_path / "aaa.md").write_text("# Alpha\n\nAlpha content.", encoding="utf-8")
+    (tmp_path / "zzz.md").write_text("# Zeta\n\nZeta content.", encoding="utf-8")
+
+    import agentism.prompts as prompts_mod
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path):
+        result = load_knowledge()
+
+    assert "Alpha content." in result
+    assert "Zeta content." in result
+    # Alpha file sorts before Zeta
+    assert result.index("Alpha content.") < result.index("Zeta content.")
+
+
+def test_load_knowledge_skips_empty_files(tmp_path):
+    (tmp_path / "empty.md").write_text("   \n", encoding="utf-8")
+    (tmp_path / "real.md").write_text("# Real\n\nReal content.", encoding="utf-8")
+
+    import agentism.prompts as prompts_mod
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path):
+        result = load_knowledge()
+
+    assert "Real content." in result
+    assert "---" not in result  # no separator when only one non-empty file
+
+
+def test_build_system_prompt_injects_knowledge(tmp_path):
+    (tmp_path / "custom.md").write_text("# Custom rules\n\nAlways use frobnicate().", encoding="utf-8")
+
+    import agentism.prompts as prompts_mod
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path):
+        prompt = build_system_prompt([])
+
+    assert "## Platform knowledge" in prompt
+    assert "Always use frobnicate()." in prompt
+
+
+def test_build_system_prompt_skips_knowledge_section_when_empty(tmp_path):
+    import agentism.prompts as prompts_mod
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path / "nonexistent"):
+        prompt = build_system_prompt([])
+
+    assert "## Platform knowledge" not in prompt
+
+
+def test_real_knowledge_files_are_loaded():
+    """Verify the shipped knowledge files are present and non-empty."""
+    content = load_knowledge()
+    assert "Groovy" in content
+    assert "API" in content or "api" in content
+    assert "platform-overview" in content.lower() or "Technology stack" in content
 
 
