@@ -52,6 +52,8 @@ uv run pytest -o addopts='' -m integration
 |---|---|---|
 | `OLLAMA_MODEL` | `llama3.2` | Any Ollama model that supports tool-calling |
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server address |
+| `OLLAMA_TEMPERATURE` | `0.7` | Sampling temperature (higher default for more exploratory reasoning) |
+| `OLLAMA_TOP_P` | `0.95` | Nucleus sampling cutoff |
 | `GITHUB_TOKEN` | *(required)* | PAT for GitHub API + MCP |
 | `GITHUB_DEFAULT_OWNER` | *(optional)* | Default org/user for GitHub operations |
 | `PLATFORM_BASE_URL` | `http://localhost:8080` | Your Groovy backend base URL |

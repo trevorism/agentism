@@ -24,11 +24,24 @@ console = Console()
 _DANGLING_TOOL_CALL = "do not have a corresponding ToolMessage"
 
 
+def _ollama_client_kwargs(model_name: str) -> dict:
+    """Build ChatOllama kwargs from runtime config."""
+    kwargs: dict = {
+        "model": model_name,
+        "base_url": config.OLLAMA_BASE_URL,
+        "temperature": config.OLLAMA_TEMPERATURE,
+    }
+    if config.OLLAMA_TOP_P is not None:
+        kwargs["top_p"] = config.OLLAMA_TOP_P
+    return kwargs
+
+
 def print_welcome() -> None:
     dry_tag = "  [bold red][DRY-RUN][/bold red]" if config.DRY_RUN else ""
     console.print(Panel(
         f"[bold cyan]Agentism[/bold cyan]  🤖{dry_tag}\n"
         f"Model : [green]{config.OLLAMA_MODEL}[/green] @ {config.OLLAMA_BASE_URL}\n"
+        f"LLM opts: temperature={config.OLLAMA_TEMPERATURE}, top_p={config.OLLAMA_TOP_P}\n"
         f"Memory: [green]{config.MEMORY_DB}[/green] (SQLite)\n"
         f"GitHub: MCP  |  Workspace: [green]{config.WORKSPACE_DIR}[/green]\n\n"
         "Type your task and press Enter. Type [bold]!help[/bold] for commands.",
@@ -106,7 +119,7 @@ async def main_async(
         async with AsyncSqliteSaver.from_conn_string(config.MEMORY_DB) as checkpointer:
 
             def build_agent(model_name: str):
-                llm = ChatOllama(model=model_name, base_url=config.OLLAMA_BASE_URL, temperature=0)
+                llm = ChatOllama(**_ollama_client_kwargs(model_name))
                 tool_node = ToolNode(all_tools, handle_tool_errors=True)
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
