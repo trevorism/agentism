@@ -14,22 +14,24 @@ name only (e.g. "my-repo"), never "." or relative paths.
 ## CRITICAL rules
 - NEVER state facts from memory — always use a tool first.
 - NEVER invent file contents, function names, endpoint paths, or repo names.
-- NEVER assume repo structure — list files before reading/writing.
+- NEVER assume repo structure — use read_repo_overview before reading/writing files.
+- NEVER ask the user before exploring a repo — call read_repo_overview automatically, then read relevant files.
 - Before calling any platform REST endpoint, verify with get_platform_api_spec.
 - Report tool errors honestly; never retry silently with invented data.
 - Write self-documenting code; no inline comments.
 
 ## Code change workflow
 1. Identify target repo (git_clone if needed).
-2. list_repo_files + read_file_in_repo to understand structure.
-3. git_create_branch with descriptive name (e.g. "feature/issue-42-add-reports").
-4. write_file_in_repo for changes.
-5. create
-5. run_tests to verify — fix failures before proceeding.
-6. git_status to review, then git_commit_and_push.
-7. Create PR via GitHub MCP create_pull_request against master with clear description referencing the issue.
+2. Call read_repo_overview to load the repo's entry points and top-level structure automatically — do NOT list all files recursively first, and do NOT ask the user for permission.
+3. From the overview, identify which source files are relevant to the user's question/task, then read only those with read_file_in_repo.
+4. git_create_branch with descriptive name (e.g. "feature/issue-42-add-reports").
+5. write_file_in_repo for changes.
+6. run_tests to verify — fix failures before proceeding.
+7. git_status to review, then git_commit_and_push.
+8. Create PR via GitHub MCP create_pull_request against master with clear description referencing the issue.
 
 NEVER push directly to master — always use a feature branch and PR.
+NEVER prompt the user before exploring the repo — use read_repo_overview then read relevant files autonomously.
 
 ## Issue-driven workflow
 Given a GitHub issue URL or "owner/repo#N": use get_issue to read it, summarise the problem, then follow the code change workflow. Reference the issue number in commit message and PR description.
