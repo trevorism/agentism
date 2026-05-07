@@ -1,4 +1,6 @@
 """Git-only tools – clone repos, inspect status, branch, commit, and push."""
+from __future__ import annotations
+
 from langchain_core.tools import tool
 from agentism.config import WORKSPACE_DIR, DEV_DIR
 from agentism import config
@@ -110,8 +112,15 @@ def git_create_branch(repo_name: str, branch_name: str, from_branch: str = "mast
 
     try:
         repo = git.Repo(str(_repo_path(repo_name)))
-        repo.git.checkout(from_branch)
-        repo.remotes.origin.pull()
+        # First fetch to ensure we have the latest remote refs
+        repo.remotes.origin.fetch()
+        # Checkout (or reset) to the remote tracking branch to get latest state
+        remote_branch = f"origin/{from_branch}"
+        if remote_branch in [ref.name for ref in repo.remote_refs]:
+            repo.git.checkout(remote_branch)
+        else:
+            # Fall back to local branch if remote tracking doesn't exist
+            repo.git.checkout(from_branch)
         new_branch = repo.create_head(branch_name)
         new_branch.checkout()
         return f"Created and checked out branch '{branch_name}' from '{from_branch}'."
@@ -192,4 +201,3 @@ def git_sync_master(repo_name: str) -> str:
         return "Checked out 'master' and pulled latest changes from origin."
     except Exception as e:
         return f"Error: {e}"
-

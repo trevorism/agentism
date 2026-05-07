@@ -1,6 +1,10 @@
 """HTTP tools – for fetching API docs, external resources, and calling the platform."""
+from __future__ import annotations
+
+import json
 import subprocess
 import time
+from datetime import datetime, timedelta
 from urllib.parse import urlparse
 from langchain_core.tools import tool
 from agentism.config import PLATFORM_BASE_URL, TREVORISM_TENANT_GUID, TREVORISM_USERNAME, TREVORISM_PASSWORD, PS_MODULE_PATH
@@ -10,8 +14,10 @@ import httpx
 _PLATFORM_HOST = urlparse(PLATFORM_BASE_URL).hostname or ""
 
 # ── OpenAPI spec cache ────────────────────────────────────────────────────────
-# Keyed by base URL, value is the raw spec text. Avoids re-fetching every turn.
-_SPEC_CACHE: dict[str, str] = {}
+# Keyed by base URL, value is a tuple of (spec_text, cached_timestamp).
+# Specs expire after 24 hours to avoid stale documentation.
+_SPEC_CACHE: dict[str, tuple[str, datetime]] = {}
+_SPEC_CACHE_TTL = timedelta(hours=24)
 
 # Common Micronaut / Spring OpenAPI spec paths, tried in order.
 _OPENAPI_PATHS = [
@@ -30,11 +36,18 @@ _TOKEN_CACHE: dict[str, float | str] = {"token": "", "expires_at": 0.0}
 _TOKEN_TTL_SECONDS = 55 * 60  # refresh 5 min before a typical 60-min expiry
 
 
+def _validate_credentials() -> None:
+    """Validate that required credentials are configured, raising if not."""
+    if not TREVORISM_USERNAME or not TREVORISM_PASSWORD:
+        raise RuntimeError("TREVORISM_USERNAME and TREVORISM_PASSWORD must be set")
+
+
 def _acquire_token() -> str:
     """
     Obtain a platform user token by calling the PowerShell module non-interactively.
     Returns the raw token string, or raises RuntimeError on failure.
     """
+    _validate_credentials()
     ps_command = (
         f"$env:PSModulePath = $env:PSModulePath + ';{PS_MODULE_PATH}'; "
         f"$cred = New-Object System.Management.Automation.PSCredential("
@@ -134,8 +147,6 @@ def post_platform_api(path: str, json_body: str) -> str:
     Returns:
         Response body text, or an error message.
     """
-    import json
-
     url = f"{PLATFORM_BASE_URL.rstrip('/')}/{path.lstrip('/')}"
     try:
         payload = json.loads(json_body)
@@ -158,7 +169,7 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
     Fetch and return the OpenAPI/Swagger spec for a platform service.
 
     Tries common Micronaut OpenAPI paths automatically. The result is cached
-    in-memory so repeated calls within a session are instant.
+    in-memory for 24 hours so repeated calls within a session are instant.
 
     Use this before calling any platform REST endpoint to get accurate path,
     method, and parameter information. Never guess endpoint signatures.
@@ -175,8 +186,13 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
     if not base:
         return "No service URL provided and PLATFORM_BASE_URL is not configured."
 
+    # Check cache with TTL expiration
     if not force_refresh and base in _SPEC_CACHE:
-        return f"[cached] {_SPEC_CACHE[base]}"
+        spec_text, cached_time = _SPEC_CACHE[base]
+        if datetime.now() - cached_time < _SPEC_CACHE_TTL:
+            return f"[cached] {spec_text}"
+        # Spec has expired; remove it so we fetch fresh below
+        del _SPEC_CACHE[base]
 
     headers = _auth_headers() if _PLATFORM_HOST and _PLATFORM_HOST in base else {}
 
@@ -187,7 +203,7 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
                 resp = client.get(url, headers=headers)
                 if resp.status_code == 200:
                     spec = resp.text
-                    _SPEC_CACHE[base] = spec
+                    _SPEC_CACHE[base] = (spec, datetime.now())
                     # Return a size-limited version to avoid flooding the context window
                     if len(spec) > 8000:
                         return spec[:8000] + f"\n\n… (truncated, full spec is {len(spec)} chars, fetched from {url})"
@@ -200,4 +216,3 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
         f"Tried: {_OPENAPI_PATHS}\n"
         "The service may not expose a spec, or it may require authentication."
     )
-

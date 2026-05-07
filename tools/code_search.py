@@ -1,14 +1,12 @@
 """Local code search tool – fast text/regex search across repos using ripgrep or Python fallback."""
-import subprocess
+from __future__ import annotations
+
 import re
+import subprocess
 from pathlib import Path
 from langchain_core.tools import tool
-from agentism.config import DEV_DIR
-from tools.discovery_filters import (
-    rg_allow_globs,
-    rg_exclude_globs,
-    should_ignore_relative_path,
-)
+from agentism.config import DEV_DIR, WORKSPACE_DIR
+from tools.discovery_filters import should_ignore_relative_path
 
 
 def _rg_available() -> bool:
@@ -19,7 +17,15 @@ def _rg_available() -> bool:
         return False
 
 
-def _search_with_rg(pattern: str, search_root: Path, file_glob: str, max_results: int) -> str:
+def _search_with_rg(
+    pattern: str,
+    search_root: Path,
+    file_glob: str,
+    max_results: int,
+) -> str:
+    """Search using ripgrep with proper exclusion/inclusion handling."""
+    # Use --exclude for directory exclusions and --glob for file type inclusions
+    # This is the standard and most reliable way to combine them in ripgrep
     args = [
         "rg",
         "--heading",
@@ -29,11 +35,15 @@ def _search_with_rg(pattern: str, search_root: Path, file_glob: str, max_results
         pattern,
         str(search_root),
     ]
-    for exclusion in rg_exclude_globs():
-        args.extend(["--glob", exclusion])
-    for inclusion in rg_allow_globs():
-        args.extend(["--glob", inclusion])
-    args.extend(["--glob", file_glob])
+
+    # Add directory exclusions using --exclude
+    for dirname in (".git", "node_modules", ".gradle", "build", "target", ".venv", "__pycache__"):
+        args.extend(["--exclude", f"{dirname}/**"])
+
+    # Add file type inclusions using --glob
+    if file_glob and file_glob != "*":
+        args.extend(["--glob", file_glob])
+
     proc = subprocess.run(args, capture_output=True, text=True, timeout=30)
     output = proc.stdout.strip()
     if not output and proc.stderr.strip():
@@ -41,14 +51,23 @@ def _search_with_rg(pattern: str, search_root: Path, file_glob: str, max_results
     return output or f"No matches for '{pattern}' in {search_root}"
 
 
-def _search_python_fallback(pattern: str, search_root: Path, file_glob: str, max_results: int) -> str:
+def _search_python_fallback(
+    pattern: str,
+    search_root: Path,
+    file_glob: str,
+    max_results: int,
+) -> str:
+    """Pure-Python regex search with proper filtering."""
     try:
         compiled = re.compile(pattern, re.IGNORECASE)
     except re.error as e:
         return f"Invalid regex pattern: {e}"
 
     matches = []
-    for filepath in sorted(search_root.rglob(file_glob)):
+    # Determine which files to search based on file_glob
+    rglob_pattern = file_glob if file_glob != "*" else "**/*"
+
+    for filepath in sorted(search_root.rglob(rglob_pattern)):
         if not filepath.is_file():
             continue
         rel = filepath.relative_to(search_root)
@@ -97,7 +116,6 @@ def search_local_code(
         Matching lines with file paths and line numbers, or "No matches found".
     """
     if repo_name:
-        from agentism.config import WORKSPACE_DIR
         p = Path(repo_name)
         if p.is_absolute():
             search_root = p
@@ -114,4 +132,3 @@ def search_local_code(
     if _rg_available():
         return _search_with_rg(pattern, search_root, file_glob, max_results)
     return _search_python_fallback(pattern, search_root, file_glob, max_results)
-

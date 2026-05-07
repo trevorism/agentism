@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from agentism.tool_metadata import (
     GITHUB_PARAMETER_HINTS,
+    get_param_hints_for_tools,
     is_github_tool_name,
     iter_tool_metadata,
     render_tool_table_rows,
@@ -57,4 +58,28 @@ def test_is_github_tool_name_uses_curated_hints_and_prefix():
 
 def test_curated_github_hints_are_available_for_prompt_builder():
     assert GITHUB_PARAMETER_HINTS["get_issue"] == ["owner", "repo", "issue_number"]
+
+
+def test_iter_tool_metadata_extracts_required_and_optional_params_from_signature():
+    def sample_tool(repo_name, relative_path, content, overwrite=False, encoding="utf-8"):
+        return "ok"
+
+    tool = SimpleNamespace(name="create_file", description="Create file.", func=sample_tool)
+
+    item = iter_tool_metadata([tool])[0]
+
+    assert item.required_params == ("repo_name", "relative_path", "content")
+    assert item.optional_params == ("overwrite", "encoding")
+
+
+def test_get_param_hints_for_tools_preserves_required_then_optional_order():
+    def sample_tool(repo_name, subdir="", pattern="*", recursive=True, max_results=2000):
+        return "ok"
+
+    tool = SimpleNamespace(name="list_repo_files", description="List files.", func=sample_tool)
+
+    hints = get_param_hints_for_tools([tool])
+
+    assert hints["list_repo_files"] == ["repo_name", "subdir", "pattern", "recursive", "max_results"]
+
 

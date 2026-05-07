@@ -28,6 +28,7 @@ def _load_tool_module(module_name: str, attr_name: str) -> Any:
 try:
     _LOADED_TOOLS.extend([
         _load_tool_module("shell", "run_powershell"),
+        _load_tool_module("shell", "run_in_terminal"),
         _load_tool_module("shell", "list_available_modules"),
         _load_tool_module("web_tool", "get_platform_token"),
         _load_tool_module("web_tool", "fetch_url"),

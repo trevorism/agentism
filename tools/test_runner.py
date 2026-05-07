@@ -1,4 +1,8 @@
 """Test runner tool – detects repo type and runs the appropriate test suite."""
+from __future__ import annotations
+
+import json
+import platform
 import subprocess
 from pathlib import Path
 from langchain_core.tools import tool
@@ -21,20 +25,29 @@ def _detect_test_commands(repo_root: Path) -> list[dict]:
     Each entry has: label, cwd, command (list).
     """
     suites = []
+    is_windows = platform.system() == "Windows"
 
     # Groovy / Gradle unit tests
     if (repo_root / "build.gradle").exists() or (repo_root / "build.gradle.kts").exists():
-        gradle_wrapper = "gradlew.bat" if (repo_root / "gradlew.bat").exists() else "gradlew"
-        suites.append({
-            "label": "Groovy/Gradle tests",
-            "cwd": str(repo_root),
-            "command": [gradle_wrapper, "test", "--info"],
-        })
+        gradle_wrapper = "gradlew.bat" if is_windows else "gradlew"
+        if (repo_root / gradle_wrapper).exists():
+            suites.append({
+                "label": "Groovy/Gradle tests",
+                "cwd": str(repo_root),
+                "command": [gradle_wrapper, "test", "--info"],
+            })
+        else:
+            # Fallback to gradle if wrapper not found
+            suites.append({
+                "label": "Groovy/Gradle tests (system gradle)",
+                "cwd": str(repo_root),
+                "command": ["gradle", "test", "--info"],
+            })
 
     # Cucumber acceptance tests (look for a cucumber-specific gradle task or feature files)
-    feature_dirs = list(repo_root.rglob("*.feature"))
-    if feature_dirs:
-        gradle_wrapper = "gradlew.bat" if (repo_root / "gradlew.bat").exists() else "gradlew"
+    feature_files = list(repo_root.rglob("*.feature"))
+    if feature_files:
+        gradle_wrapper = "gradlew.bat" if is_windows else "gradlew"
         if (repo_root / "build.gradle").exists() or (repo_root / "build.gradle.kts").exists():
             suites.append({
                 "label": "Cucumber acceptance tests",
@@ -45,24 +58,30 @@ def _detect_test_commands(repo_root: Path) -> list[dict]:
     # Node / Vue / Vitest
     package_json = repo_root / "package.json"
     if package_json.exists():
-        import json
         try:
             pkg = json.loads(package_json.read_text(encoding="utf-8"))
             scripts = pkg.get("scripts", {})
             if "test" in scripts:
                 test_cmd = scripts["test"]
                 # Prefer vitest run (non-interactive) over bare "vitest" which watches
-                if "vitest" in test_cmd and "run" not in test_cmd:
+                if "vitest" in test_cmd:
                     command = ["npx", "vitest", "run"]
                 else:
                     command = ["npm", "test", "--", "--run"]
+                suites.append({
+                    "label": "Vitest / JS tests",
+                    "cwd": str(repo_root),
+                    "command": command,
+                })
             else:
-                command = ["npx", "vitest", "run"]
-            suites.append({
-                "label": "Vitest / JS tests",
-                "cwd": str(repo_root),
-                "command": command,
-            })
+                # No test script, but try vitest if it's a dependency
+                deps = {**pkg.get("dependencies", {}), **pkg.get("devDependencies", {})}
+                if "vitest" in deps:
+                    suites.append({
+                        "label": "Vitest / JS tests (auto-detected)",
+                        "cwd": str(repo_root),
+                        "command": ["npx", "vitest", "run"],
+                    })
         except Exception:
             pass
 
@@ -134,4 +153,3 @@ def run_tests(repo_name: str, suite: str = "all") -> str:
             results.append(f"❌ Error: {e}")
 
     return "\n".join(results)
-
