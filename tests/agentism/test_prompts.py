@@ -1,6 +1,6 @@
 from types import SimpleNamespace
 
-from agentism.prompts import BASE_SYSTEM_PROMPT, build_system_prompt
+from agentism.prompts import BASE_SYSTEM_PROMPT, build_system_prompt, issue_ref_to_prompt
 
 
 def _tool(name: str, description: str = ""):
@@ -52,4 +52,22 @@ def test_build_system_prompt_groups_github_tools_compactly():
     assert "GitHub MCP tools available:" in prompt
     assert "search_repositories" in prompt
     assert "github_extra_tool" in prompt
+
+
+def test_base_system_prompt_requires_autonomous_repo_reads_and_tool_chaining():
+    assert "NEVER narrate intended repo reads or tool use as a question or status update" in BASE_SYSTEM_PROMPT
+    assert "Immediately call read_repo_overview" in BASE_SYSTEM_PROMPT
+    assert "immediately chain read_file_in_repo calls" in BASE_SYSTEM_PROMPT
+    assert "do NOT ask the user for permission" in BASE_SYSTEM_PROMPT
+    assert 'NEVER stop after saying "I will inspect/read/look at ..."' in BASE_SYSTEM_PROMPT
+
+
+def test_issue_ref_to_prompt_requires_repo_overview_without_permission_prompt():
+    prompt = issue_ref_to_prompt("owner/repo#42")
+
+    assert "get_issue" in prompt
+    assert "read_repo_overview" in prompt
+    assert "read_file_in_repo" in prompt
+    assert "without asking for permission" in prompt
+
 

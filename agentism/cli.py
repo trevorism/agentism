@@ -30,7 +30,9 @@ def startup_plan(args: argparse.Namespace, issue_prompt_fn):
         batch_issues = [
             f"Fetch all open issues in {args.issues} with label '{args.label}' "
             "using the MCP list_issues tool, then process each one following the "
-            "issue-driven workflow."
+            "issue-driven workflow autonomously, including repo inspection with "
+            "read_repo_overview and relevant read_file_in_repo calls without asking "
+            "the user first."
         ]
     elif args.issue:
         initial_prompt = issue_prompt_fn(args.issue)
