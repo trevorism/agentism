@@ -149,6 +149,7 @@ def test_cmd_merge_with_ref():
     assert result is not None
     assert "owner/repo#42" in result
     assert "merge" in result.lower()
+    assert "git_sync_master" in result
 
 
 def test_cmd_pr_in_command_list():

@@ -42,6 +42,7 @@ try:
         _load_tool_module("git_tool", "git_create_branch"),
         _load_tool_module("git_tool", "git_status"),
         _load_tool_module("git_tool", "git_commit_and_push"),
+        _load_tool_module("git_tool", "git_sync_master"),
         _load_tool_module("test_runner", "run_tests"),
         _load_tool_module("code_search", "search_local_code"),
     ])

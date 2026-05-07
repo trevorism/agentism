@@ -170,3 +170,26 @@ def git_commit_and_push(repo_name: str, message: str) -> str:
         )
     except Exception as e:
         return f"Error: {e}"
+
+
+@tool
+def git_sync_master(repo_name: str) -> str:
+    """
+    Sync a local repository after a PR merge by updating the master branch.
+
+    This checks out `master` and pulls the latest commits from `origin` so the
+    local checkout matches the remote default branch state after merge.
+    """
+    import git
+
+    if config.DRY_RUN:
+        return f"[DRY-RUN] Would checkout 'master' and pull latest from origin in '{repo_name}'."
+
+    try:
+        repo = git.Repo(str(_repo_path(repo_name)))
+        repo.git.checkout("master")
+        repo.remotes.origin.pull()
+        return "Checked out 'master' and pulled latest changes from origin."
+    except Exception as e:
+        return f"Error: {e}"
+

@@ -209,7 +209,8 @@ class ReplCommands:
         ref = args[0]
         return (
             f"Please merge the pull request {ref} using the GitHub MCP tools (merge_pull_request).\n"
-            f"Use the default merge method (merge commit) unless the PR has specific requirements."
+            "Use the default merge method (merge commit) unless the PR has specific requirements.\n"
+            "After merge succeeds, call `git_sync_master` to update the local checkout (checkout master + pull)."
         )
 
     async def cmd_health(self) -> Panel:
