@@ -101,6 +101,26 @@ def test_base_system_prompt_workflow_references_knowledge_for_conventions():
     assert "Platform knowledge" in BASE_SYSTEM_PROMPT
 
 
+def test_base_system_prompt_has_read_only_intent_mode():
+    assert "Intent handling" in BASE_SYSTEM_PROMPT
+    assert "read-only mode" in BASE_SYSTEM_PROMPT
+    assert "Only enter implementation mode" in BASE_SYSTEM_PROMPT
+
+
+def test_base_system_prompt_blocks_mutating_tools_in_read_only_mode():
+    assert "NEVER call mutating tools" in BASE_SYSTEM_PROMPT
+    assert "`create_file`" in BASE_SYSTEM_PROMPT
+    assert "`write_file_in_repo`" in BASE_SYSTEM_PROMPT
+    assert "`git_create_branch`" in BASE_SYSTEM_PROMPT
+    assert "`git_commit_and_push`" in BASE_SYSTEM_PROMPT
+    assert "`create_pull_request`" in BASE_SYSTEM_PROMPT
+
+
+def test_code_change_workflow_is_scoped_to_implementation_mode():
+    assert "Apply this workflow only in implementation mode" in BASE_SYSTEM_PROMPT
+    assert "In implementation mode, NEVER push directly to master" in BASE_SYSTEM_PROMPT
+
+
 def test_issue_ref_to_prompt_requires_repo_overview_without_permission_prompt():
     prompt = issue_ref_to_prompt("owner/repo#42")
 
@@ -203,3 +223,20 @@ def test_base_system_prompt_prefers_run_in_terminal_over_run_powershell():
     """Prompt should guide model towards run_in_terminal for consistency."""
     assert "Prefer `run_in_terminal` over `run_powershell`" in BASE_SYSTEM_PROMPT
     assert "they are aliases" in BASE_SYSTEM_PROMPT
+
+
+def test_base_system_prompt_handles_not_found_errors_explicitly():
+    """Prompt should provide specific recovery guidance for Not Found errors."""
+    assert "Not Found" in BASE_SYSTEM_PROMPT
+    assert "report clearly to the user which resource was not found" in BASE_SYSTEM_PROMPT
+    assert "NEVER respond to a Not Found error with" in BASE_SYSTEM_PROMPT
+    assert "search_repositories or search_issues" in BASE_SYSTEM_PROMPT
+
+
+def test_issue_ref_to_prompt_includes_not_found_fallback():
+    """Issue prompt should instruct agent to search if resource is not found."""
+    prompt = issue_ref_to_prompt("owner/repo#42")
+    assert "Not Found" in prompt
+    assert "search_issues" in prompt
+    assert "search_repositories" in prompt
+

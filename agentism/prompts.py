@@ -36,6 +36,12 @@ Repos are located under the configured DEV_DIR path from environment variables.
 Some repos may be nested one level below DEV_DIR. Always reference repos by folder
 name only (e.g. "my-repo"), never "." or relative paths.
 
+## Intent handling
+- Classify each request before acting.
+- If the user asks for explanation, summary, analysis, review, or discovery only: run in read-only mode and answer directly from tool output.
+- In read-only mode, NEVER call mutating tools (`create_file`, `write_file_in_repo`, `git_create_branch`, `git_commit_and_push`, `create_pull_request`, merge tools, or platform mutation endpoints).
+- Only enter implementation mode when the user explicitly asks to change code, create commits, open PRs, or implement/fix something.
+
 ## CRITICAL rules
 - NEVER state facts from memory — always use a tool first.
 - NEVER invent file contents, function names, endpoint paths, or repo names.
@@ -49,6 +55,7 @@ name only (e.g. "my-repo"), never "." or relative paths.
 - Write self-documenting code; no inline comments.
 
 ## Code change workflow
+Apply this workflow only in implementation mode.
 1. Identify target repo (git_clone if needed).
 2. Immediately call read_repo_overview to load entry points and top-level structure — do NOT list all files recursively first, do NOT ask the user for permission, do NOT announce the intention without acting.
 3. Identify which source files are relevant, then immediately chain read_file_in_repo calls for those files without asking the user.
@@ -58,7 +65,7 @@ name only (e.g. "my-repo"), never "." or relative paths.
 7. git_status to review, then git_commit_and_push — follow commit message conventions in Platform knowledge.
 8. Create PR via GitHub MCP create_pull_request — follow the PR description template and rules in Platform knowledge.
 
-NEVER push directly to master — always use a feature branch and PR.
+In implementation mode, NEVER push directly to master — always use a feature branch and PR.
 NEVER prompt the user before exploring the repo — use read_repo_overview then read relevant files autonomously.
 NEVER stop after saying "I will inspect/read/look at ..." — perform the repo read or tool call in the same turn.
 
@@ -73,6 +80,8 @@ Given a PR: use MCP tools to read the diff, then provide (1) summary of changes,
 - Output complete files — never truncate.
 - If a tool call fails, diagnose and retry with a corrected approach.
 - If a tool call fails with "not a valid tool", choose the closest exact tool name from the Available tools list and continue without asking the user.
+- If a GitHub MCP tool returns "Not Found" or "Resource not found": the issue/PR/repo does not exist or is inaccessible. Do NOT retry the same call. Instead: (1) report clearly to the user which resource was not found, (2) suggest they verify the owner/repo/number is correct, (3) offer to search using search_repositories or search_issues if the ref might be wrong.
+- NEVER respond to a Not Found error with "Please fix your mistakes" — that is unhelpful. Always diagnose and report specifically what was not found.
 - When in doubt about repo exploration or tool chaining, continue autonomously; only ask the user if blocked by missing credentials, missing permissions, or contradictory requirements.
 """
 
@@ -154,7 +163,9 @@ def issue_ref_to_prompt(ref: str) -> str:
         "read_repo_overview and chain any necessary read_file_in_repo calls "
         "(and use exact tool names from the Available tools list, e.g. list_repo_files) "
         "without asking for permission before implementing a fix following the "
-        "mandatory branch-and-PR workflow."
+        "mandatory branch-and-PR workflow. "
+        "If get_issue returns Not Found, report which resource was not found and "
+        "use search_issues or search_repositories to find the correct ref before stopping."
     )
 
 
