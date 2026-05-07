@@ -6,6 +6,7 @@ from pathlib import Path
 # Directories that are usually irrelevant for source discovery.
 IGNORED_DIR_NAMES = {
     ".git",
+    ".idea",
     "__pycache__",
     ".venv",
     "node_modules",

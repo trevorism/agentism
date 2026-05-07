@@ -29,6 +29,19 @@ def _optional(name: str, default: str = "") -> str:
     return os.getenv(name, default)
 
 
+def _optional_float(name: str, default: float | None = None) -> float | None:
+    """Return an optional float env var; empty values resolve to default."""
+    raw = os.getenv(name, "")
+    if raw == "":
+        return default
+    try:
+        return float(raw)
+    except ValueError:
+        if default is not None:
+            return default
+        raise
+
+
 def _path(name: str, default: str) -> Path:
     """Return a Path from the env var, or the default if not set."""
     value = os.getenv(name, default)
@@ -38,6 +51,11 @@ def _path(name: str, default: str) -> Path:
 # -- Ollama (required) --
 OLLAMA_BASE_URL: str = _optional("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL: str = _required("OLLAMA_MODEL")
+_DEFAULT_TEMPERATURE = 0.7
+_DEFAULT_TOP_P = 0.95
+
+OLLAMA_TEMPERATURE: float = _optional_float("OLLAMA_TEMPERATURE", _DEFAULT_TEMPERATURE) or _DEFAULT_TEMPERATURE
+OLLAMA_TOP_P: float | None = _optional_float("OLLAMA_TOP_P", _DEFAULT_TOP_P)
 
 # -- GitHub (required for MCP tools) --
 GITHUB_TOKEN: str = _required("GITHUB_TOKEN")

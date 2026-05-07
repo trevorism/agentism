@@ -52,3 +52,30 @@ async def test_safe_close_async_handles_sync_close():
 
     assert events == ["close"]
 
+
+def test_ollama_client_kwargs_includes_temperature_and_top_p(monkeypatch):
+    monkeypatch.setattr(app.config, "OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setattr(app.config, "OLLAMA_TEMPERATURE", 0.7)
+    monkeypatch.setattr(app.config, "OLLAMA_TOP_P", 0.95)
+
+    kwargs = app._ollama_client_kwargs("qwen3.6")
+
+    assert kwargs["model"] == "qwen3.6"
+    assert kwargs["temperature"] == 0.7
+    assert kwargs["top_p"] == 0.95
+    assert "model_kwargs" not in kwargs
+
+
+def test_ollama_client_kwargs_can_omit_top_p(monkeypatch):
+    monkeypatch.setattr(app.config, "OLLAMA_BASE_URL", "http://localhost:11434")
+    monkeypatch.setattr(app.config, "OLLAMA_TEMPERATURE", 0.7)
+    monkeypatch.setattr(app.config, "OLLAMA_TOP_P", None)
+
+    kwargs = app._ollama_client_kwargs("llama3.2")
+
+    assert kwargs["model"] == "llama3.2"
+    assert kwargs["temperature"] == 0.7
+    assert "top_p" not in kwargs
+    assert "model_kwargs" not in kwargs
+
+
