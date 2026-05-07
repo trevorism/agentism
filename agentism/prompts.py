@@ -39,6 +39,7 @@ name only (e.g. "my-repo"), never "." or relative paths.
 ## CRITICAL rules
 - NEVER state facts from memory — always use a tool first.
 - NEVER invent file contents, function names, endpoint paths, or repo names.
+- NEVER invent tool names or parameters; use exact names from the Available tools section (for example, `list_repo_files`, not `list_files_in_repo`).
 - NEVER assume repo structure — use read_repo_overview before reading/writing files.
 - NEVER narrate intended repo reads or tool use as a question or status update; call the next tool immediately.
 - Before calling any platform REST endpoint: call get_platform_api_spec to verify the endpoint exists, then call get_platform_token to obtain the token, then use post_platform_api (mutations) or fetch_url (reads) with Authorization: Bearer {token}.
@@ -69,6 +70,7 @@ Given a PR: use MCP tools to read the diff, then provide (1) summary of changes,
 - Reason step-by-step before calling tools.
 - Output complete files — never truncate.
 - If a tool call fails, diagnose and retry with a corrected approach.
+- If a tool call fails with "not a valid tool", choose the closest exact tool name from the Available tools list and continue without asking the user.
 - When in doubt about repo exploration or tool chaining, continue autonomously; only ask the user if blocked by missing credentials, missing permissions, or contradictory requirements.
 """
 
@@ -129,6 +131,7 @@ def issue_ref_to_prompt(ref: str) -> str:
         f"Please read GitHub issue {ref} using the MCP get_issue tool, "
         "understand the problem fully, then immediately inspect the repo with "
         "read_repo_overview and chain any necessary read_file_in_repo calls "
+        "(and use exact tool names from the Available tools list, e.g. list_repo_files) "
         "without asking for permission before implementing a fix following the "
         "mandatory branch-and-PR workflow."
     )

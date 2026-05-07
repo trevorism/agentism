@@ -78,6 +78,12 @@ def test_base_system_prompt_platform_api_tool_chain_is_a_critical_rule():
     assert "get_platform_token" in BASE_SYSTEM_PROMPT
 
 
+def test_base_system_prompt_requires_exact_tool_names():
+    assert "NEVER invent tool names or parameters" in BASE_SYSTEM_PROMPT
+    assert "list_repo_files" in BASE_SYSTEM_PROMPT
+    assert "list_files_in_repo" in BASE_SYSTEM_PROMPT
+
+
 def test_base_system_prompt_workflow_references_knowledge_for_conventions():
     # Workflow steps should delegate naming/format details to knowledge files, not re-specify them.
     assert "Platform knowledge" in BASE_SYSTEM_PROMPT
@@ -89,6 +95,8 @@ def test_issue_ref_to_prompt_requires_repo_overview_without_permission_prompt():
     assert "get_issue" in prompt
     assert "read_repo_overview" in prompt
     assert "read_file_in_repo" in prompt
+    assert "exact tool names" in prompt
+    assert "list_repo_files" in prompt
     assert "without asking for permission" in prompt
 
 

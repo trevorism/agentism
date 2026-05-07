@@ -101,3 +101,4 @@ def test_list_repo_files_truncates_large_results(tmp_path: Path):
     lines = output.splitlines()
     assert len(lines) == 3
     assert lines[-1].startswith("... truncated at 2 files")
+
