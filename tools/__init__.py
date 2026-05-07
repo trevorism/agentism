@@ -33,6 +33,7 @@ try:
         _load_tool_module("web_tool", "fetch_url"),
         _load_tool_module("web_tool", "post_platform_api"),
         _load_tool_module("web_tool", "get_platform_api_spec"),
+        _load_tool_module("file_tool", "read_repo_overview"),
         _load_tool_module("file_tool", "read_file_in_repo"),
         _load_tool_module("file_tool", "list_repo_files"),
         _load_tool_module("file_tool", "create_file"),

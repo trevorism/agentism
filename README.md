@@ -1,4 +1,8 @@
-# Agentism – Local Platform Dev Agent
+# Agentism
+![Build](https://github.com/trevorism/agentism/actions/workflows/build.yml/badge.svg)
+![GitHub last commit](https://img.shields.io/github/last-commit/trevorism/agentism)
+![GitHub language count](https://img.shields.io/github/languages/count/trevorism/agentism)
+![GitHub top language](https://img.shields.io/github/languages/top/trevorism/agentism)
 
 A local agent (LangGraph + Ollama) that can develop software
 

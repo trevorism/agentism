@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.file_tool import create_file, read_file_in_repo, write_file_in_repo
+from tools.file_tool import create_file, list_repo_files, read_file_in_repo, write_file_in_repo
 
 
 def test_create_file_creates_new_file(tmp_path: Path):
@@ -67,4 +67,37 @@ def test_write_file_in_repo_overwrites_contents(tmp_path: Path):
     assert target.read_text(encoding="utf-8") == '{"new": true}'
 
 
+def test_list_repo_files_recurses_by_default(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    (repo_dir / "src" / "nested").mkdir(parents=True)
+    (repo_dir / "src" / "nested" / "main.py").write_text("print('ok')\n", encoding="utf-8")
 
+    output = list_repo_files.func(str(repo_dir))
+
+    assert "src/nested/main.py" in output.replace("\\", "/")
+
+
+def test_list_repo_files_can_disable_recursion(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    (repo_dir / "src" / "nested").mkdir(parents=True)
+    (repo_dir / "src" / "nested" / "main.py").write_text("print('ok')\n", encoding="utf-8")
+    (repo_dir / "top.py").write_text("print('top')\n", encoding="utf-8")
+
+    output = list_repo_files.func(str(repo_dir), recursive=False)
+
+    normalized = output.replace("\\", "/")
+    assert "top.py" in normalized
+    assert "src/nested/main.py" not in normalized
+
+
+def test_list_repo_files_truncates_large_results(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    (repo_dir / "src").mkdir(parents=True)
+    for idx in range(3):
+        (repo_dir / "src" / f"f{idx}.py").write_text("pass\n", encoding="utf-8")
+
+    output = list_repo_files.func(str(repo_dir), max_results=2)
+
+    lines = output.splitlines()
+    assert len(lines) == 3
+    assert lines[-1].startswith("... truncated at 2 files")
