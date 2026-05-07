@@ -92,6 +92,8 @@ def test_base_system_prompt_platform_api_tool_chain_is_a_critical_rule():
 def test_base_system_prompt_requires_exact_tool_names():
     assert "NEVER invent tool names or parameters" in BASE_SYSTEM_PROMPT
     assert "supply every required parameter exactly as listed" in BASE_SYSTEM_PROMPT
+    assert "Do not mix GitHub MCP parameter names with local tool parameter names" in BASE_SYSTEM_PROMPT
+    assert "`list_repo_files` uses `repo_name`" in BASE_SYSTEM_PROMPT
     assert "list_repo_files" in BASE_SYSTEM_PROMPT
     assert "list_files_in_repo" in BASE_SYSTEM_PROMPT
 
@@ -231,6 +233,12 @@ def test_base_system_prompt_handles_not_found_errors_explicitly():
     assert "report clearly to the user which resource was not found" in BASE_SYSTEM_PROMPT
     assert "NEVER respond to a Not Found error with" in BASE_SYSTEM_PROMPT
     assert "search_repositories or search_issues" in BASE_SYSTEM_PROMPT
+
+
+def test_base_system_prompt_handles_tool_invocation_kwarg_errors_with_retry():
+    assert "ToolInvocationError" in BASE_SYSTEM_PROMPT
+    assert "missing/invalid kwargs" in BASE_SYSTEM_PROMPT
+    assert "immediately retry the same tool" in BASE_SYSTEM_PROMPT
 
 
 def test_issue_ref_to_prompt_includes_not_found_fallback():
