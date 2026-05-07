@@ -6,8 +6,7 @@ from agentism.config import PS_MODULE_PATH
 _PREAMBLE = rf"$env:PSModulePath = $env:PSModulePath + ';{PS_MODULE_PATH}'; "
 
 
-@tool
-def run_powershell(command: str, import_modules: list[str] | None = None) -> str:
+def _execute_powershell(command: str, import_modules: list[str] | None = None) -> str:
     """
     Run a pwsh (PowerShell 7+) command on the local machine and return its output.
 
@@ -43,6 +42,18 @@ def run_powershell(command: str, import_modules: list[str] | None = None) -> str
     if error:
         return f"STDOUT:\n{output}\n\nSTDERR:\n{error}"
     return output or "(no output)"
+
+
+@tool
+def run_powershell(command: str, import_modules: list[str] | None = None) -> str:
+    """Run a pwsh command on the local machine and return its output."""
+    return _execute_powershell(command, import_modules)
+
+
+@tool
+def run_in_terminal(command: str, import_modules: list[str] | None = None) -> str:
+    """Alias for run_powershell with the same parameters."""
+    return _execute_powershell(command, import_modules)
 
 
 @tool

@@ -40,8 +40,10 @@ name only (e.g. "my-repo"), never "." or relative paths.
 - NEVER state facts from memory — always use a tool first.
 - NEVER invent file contents, function names, endpoint paths, or repo names.
 - NEVER invent tool names or parameters; use exact names from the Available tools section (for example, `list_repo_files`, not `list_files_in_repo`).
+- For every local tool call, supply every required parameter exactly as listed; do not guess missing kwargs or rename fields.
 - NEVER assume repo structure — use read_repo_overview before reading/writing files.
 - NEVER narrate intended repo reads or tool use as a question or status update; call the next tool immediately.
+- Prefer `run_in_terminal` over `run_powershell` for consistency (they are aliases).
 - Before calling any platform REST endpoint: call get_platform_api_spec to verify the endpoint exists, then call get_platform_token to obtain the token, then use post_platform_api (mutations) or fetch_url (reads) with Authorization: Bearer {token}.
 - Report tool errors honestly; never retry silently with invented data.
 - Write self-documenting code; no inline comments.
@@ -81,6 +83,12 @@ def build_system_prompt(all_tools: list) -> str:
 
     unique_tools = unique_sorted_tool_metadata(all_tools)
 
+    # High-risk tools requiring explicit parameter hints (to reduce parameter errors).
+    HIGH_RISK_TOOLS = {
+        "create_file", "write_file_in_repo", "read_file_in_repo", "list_repo_files",
+        "run_in_terminal", "git_create_branch", "git_commit_and_push",
+    }
+
     for tool in unique_tools:
         if tool.is_github:
             github_names.append(tool.name)
@@ -105,6 +113,19 @@ def build_system_prompt(all_tools: list) -> str:
                 prompt_parts.append(
                     f"- ... plus {len(github_names) - 30} more GitHub tools."
                 )
+
+    local_param_hints = [
+        f"- {tool.name} → required: `{'`, `'.join(tool.required_params)}`"
+        + (
+            f"; optional: `{'`, `'.join(tool.optional_params)}`"
+            if tool.optional_params else ""
+        )
+        for tool in unique_tools
+        if not tool.is_github and tool.name in HIGH_RISK_TOOLS and tool.required_params
+    ]
+    if local_param_hints:
+        prompt_parts.append("## Local tool parameter names (exact — include all required kwargs)")
+        prompt_parts.extend(local_param_hints)
 
     present_github_hints = [
         f"- {name} → `{'`, `'.join(GITHUB_PARAMETER_HINTS[name])}`"

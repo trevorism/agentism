@@ -1,4 +1,3 @@
-from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -56,6 +55,18 @@ def test_build_system_prompt_groups_github_tools_compactly():
     assert "github_extra_tool" in prompt
 
 
+def test_build_system_prompt_includes_local_tool_parameter_contracts():
+    def create_file_tool(repo_name, relative_path, content):
+        return "ok"
+
+    tool = SimpleNamespace(name="create_file", description="Create file.", func=create_file_tool)
+
+    prompt = build_system_prompt([tool])
+
+    assert "## Local tool parameter names (exact — include all required kwargs)" in prompt
+    assert "- create_file → required: `repo_name`, `relative_path`, `content`" in prompt
+
+
 def test_base_system_prompt_requires_autonomous_repo_reads_and_tool_chaining():
     assert "NEVER narrate intended repo reads or tool use as a question or status update" in BASE_SYSTEM_PROMPT
     assert "Immediately call read_repo_overview" in BASE_SYSTEM_PROMPT
@@ -80,6 +91,7 @@ def test_base_system_prompt_platform_api_tool_chain_is_a_critical_rule():
 
 def test_base_system_prompt_requires_exact_tool_names():
     assert "NEVER invent tool names or parameters" in BASE_SYSTEM_PROMPT
+    assert "supply every required parameter exactly as listed" in BASE_SYSTEM_PROMPT
     assert "list_repo_files" in BASE_SYSTEM_PROMPT
     assert "list_files_in_repo" in BASE_SYSTEM_PROMPT
 
@@ -160,3 +172,34 @@ def test_real_knowledge_files_are_loaded():
     assert "platform-overview" in content.lower() or "Technology stack" in content
 
 
+def test_build_system_prompt_restricts_param_hints_to_high_risk_tools():
+    """Only high-risk tools should show required parameter hints."""
+    def create_file_tool(repo_name, relative_path, content):
+        return "ok"
+
+    def list_repo_files_tool(repo_name, recursive=True):
+        return "files"
+
+    def custom_tool(some_param):
+        return "custom"
+
+    tools = [
+        SimpleNamespace(name="create_file", description="Create file.", func=create_file_tool),
+        SimpleNamespace(name="list_repo_files", description="List files.", func=list_repo_files_tool),
+        SimpleNamespace(name="custom_non_critical_tool", description="Custom tool.", func=custom_tool),
+    ]
+
+    prompt = build_system_prompt(tools)
+
+    # High-risk tools should have parameter hints
+    assert "- create_file → required: `repo_name`, `relative_path`, `content`" in prompt
+    assert "- list_repo_files → required: `repo_name`" in prompt
+
+    # Non-high-risk tools should NOT have parameter hints shown
+    assert "custom_non_critical_tool" not in prompt.split("## Local tool parameter names")[1] if "## Local tool parameter names" in prompt else True
+
+
+def test_base_system_prompt_prefers_run_in_terminal_over_run_powershell():
+    """Prompt should guide model towards run_in_terminal for consistency."""
+    assert "Prefer `run_in_terminal` over `run_powershell`" in BASE_SYSTEM_PROMPT
+    assert "they are aliases" in BASE_SYSTEM_PROMPT
