@@ -167,6 +167,18 @@ def test_load_knowledge_skips_empty_files(tmp_path):
     assert "---" not in result  # no separator when only one non-empty file
 
 
+def test_load_knowledge_can_filter_by_allowlist(tmp_path):
+    (tmp_path / "alpha.md").write_text("# Alpha\n\nAlpha content.", encoding="utf-8")
+    (tmp_path / "beta.md").write_text("# Beta\n\nBeta content.", encoding="utf-8")
+
+    import agentism.prompts as prompts_mod
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path):
+        result = load_knowledge({"alpha"})
+
+    assert "Alpha content." in result
+    assert "Beta content." not in result
+
+
 def test_build_system_prompt_injects_knowledge(tmp_path):
     (tmp_path / "custom.md").write_text("# Custom rules\n\nAlways use frobnicate().", encoding="utf-8")
 
@@ -176,6 +188,19 @@ def test_build_system_prompt_injects_knowledge(tmp_path):
 
     assert "## Platform knowledge" in prompt
     assert "Always use frobnicate()." in prompt
+
+
+def test_build_system_prompt_honors_env_knowledge_filter(tmp_path, monkeypatch):
+    (tmp_path / "a.md").write_text("# A\n\nA rule.", encoding="utf-8")
+    (tmp_path / "b.md").write_text("# B\n\nB rule.", encoding="utf-8")
+
+    import agentism.prompts as prompts_mod
+    monkeypatch.setenv("AGENT_KNOWLEDGE_FILES", "b")
+    with patch.object(prompts_mod, "_KNOWLEDGE_DIR", tmp_path):
+        prompt = build_system_prompt([])
+
+    assert "B rule." in prompt
+    assert "A rule." not in prompt
 
 
 def test_build_system_prompt_skips_knowledge_section_when_empty(tmp_path):

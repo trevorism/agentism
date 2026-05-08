@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from agentism.tool_metadata import GITHUB_PARAMETER_HINTS, unique_sorted_tool_metadata
@@ -10,17 +11,25 @@ from agentism.tool_metadata import GITHUB_PARAMETER_HINTS, unique_sorted_tool_me
 _KNOWLEDGE_DIR = Path(__file__).parent / "knowledge"
 
 
-def load_knowledge() -> str:
-    """Load all markdown files from agentism/knowledge/ sorted alphabetically.
+def load_knowledge(include_files: set[str] | None = None) -> str:
+    """Load markdown files from agentism/knowledge/ sorted alphabetically.
 
     Returns the combined content as a single string with section headers,
     or an empty string if the directory does not exist or is empty.
     """
     if not _KNOWLEDGE_DIR.is_dir():
         return ""
+
+    include_lookup = {name.lower() for name in include_files} if include_files else None
+
     files = sorted(_KNOWLEDGE_DIR.glob("*.md"))
     sections: list[str] = []
     for f in files:
+        if include_lookup is not None:
+            stem = f.stem.lower()
+            name = f.name.lower()
+            if stem not in include_lookup and name not in include_lookup:
+                continue
         try:
             content = f.read_text(encoding="utf-8").strip()
             if content:
@@ -29,7 +38,21 @@ def load_knowledge() -> str:
             pass
     return "\n\n---\n\n".join(sections)
 
-BASE_SYSTEM_PROMPT = """You are a senior software engineer agent. Your platform stack, coding conventions, testing patterns, and PR standards are defined in the Platform knowledge section below — treat every rule there as binding.
+
+def _knowledge_files_from_env() -> set[str] | None:
+    """Return optional knowledge file allowlist from AGENT_KNOWLEDGE_FILES.
+
+    Accepts comma-separated file stems or names, for example:
+    - platform-overview,pr-conventions
+    - platform-overview.md,pr-conventions.md
+    """
+    raw = os.getenv("AGENT_KNOWLEDGE_FILES", "").strip()
+    if not raw:
+        return None
+    items = {part.strip() for part in raw.split(",") if part.strip()}
+    return items or None
+
+BASE_SYSTEM_PROMPT = """You are a senior software engineer agent. Rules in the Platform knowledge section are binding.
 
 ## Repo layout
 Repos are located under the configured DEV_DIR path from environment variables.
@@ -58,16 +81,13 @@ name only (e.g. "my-repo"), never "." or relative paths.
 ## Code change workflow
 Apply this workflow only in implementation mode.
 1. Identify target repo (git_clone if needed).
-2. Immediately call read_repo_overview to load entry points and top-level structure — do NOT list all files recursively first, do NOT ask the user for permission, do NOT announce the intention without acting.
-3. Identify which source files are relevant, then immediately chain read_file_in_repo calls for those files without asking the user.
-4. git_create_branch — follow branch naming conventions in Platform knowledge.
-5. write_file_in_repo for changes, following language idioms in Platform knowledge.
-6. run_tests to verify — fix failures before proceeding; do not open a PR with failing tests.
-7. git_status to review, then git_commit_and_push — follow commit message conventions in Platform knowledge.
-8. Create PR via GitHub MCP create_pull_request — follow the PR description template and rules in Platform knowledge.
+2. Immediately call read_repo_overview — do NOT list all files recursively first, do NOT ask the user for permission, do NOT announce intent without acting.
+3. Identify relevant files, then immediately chain read_file_in_repo calls.
+4. Implement and verify: git_create_branch, write_file_in_repo, run_tests, git_status, git_commit_and_push, create_pull_request (follow Platform knowledge conventions).
 
 In implementation mode, NEVER push directly to master — always use a feature branch and PR.
 NEVER prompt the user before exploring the repo — use read_repo_overview then read relevant files autonomously.
+Immediately call read_repo_overview and immediately chain read_file_in_repo calls; do NOT ask the user for permission.
 NEVER stop after saying "I will inspect/read/look at ..." — perform the repo read or tool call in the same turn.
 
 ## Issue-driven workflow
@@ -87,7 +107,7 @@ Given a PR: use MCP tools to read the diff, then provide (1) summary of changes,
 - When in doubt about repo exploration or tool chaining, continue autonomously; only ask the user if blocked by missing credentials, missing permissions, or contradictory requirements.
 """
 
-def build_system_prompt(all_tools: list) -> str:
+def build_system_prompt(all_tools: list, knowledge_files: set[str] | None = None) -> str:
     """Build a compact system prompt from static policy plus active tool metadata."""
     local_lines = []
     github_names = []
@@ -108,7 +128,8 @@ def build_system_prompt(all_tools: list) -> str:
 
     prompt_parts = [BASE_SYSTEM_PROMPT]
 
-    knowledge = load_knowledge()
+    selected_knowledge = knowledge_files or _knowledge_files_from_env()
+    knowledge = load_knowledge(selected_knowledge)
     if knowledge:
         prompt_parts.append("## Platform knowledge\n\n" + knowledge)
 

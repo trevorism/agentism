@@ -25,35 +25,24 @@ def _detect_test_commands(repo_root: Path) -> list[dict]:
     Each entry has: label, cwd, command (list).
     """
     suites = []
-    is_windows = platform.system() == "Windows"
 
     # Groovy / Gradle unit tests
-    if (repo_root / "build.gradle").exists() or (repo_root / "build.gradle.kts").exists():
-        gradle_wrapper = "gradlew.bat" if is_windows else "gradlew"
-        if (repo_root / gradle_wrapper).exists():
-            suites.append({
-                "label": "Groovy/Gradle tests",
-                "cwd": str(repo_root),
-                "command": [gradle_wrapper, "test", "--info"],
-            })
-        else:
-            # Fallback to gradle if wrapper not found
-            suites.append({
-                "label": "Groovy/Gradle tests (system gradle)",
-                "cwd": str(repo_root),
-                "command": ["gradle", "test", "--info"],
-            })
+    if (repo_root / "build.gradle").exists():
+        suites.append({
+            "label": "Groovy/Gradle tests (system gradle)",
+            "cwd": str(repo_root),
+            "command": ["gradle", "test", "--info"],
+        })
 
     # Cucumber acceptance tests (look for a cucumber-specific gradle task or feature files)
     feature_files = list(repo_root.rglob("*.feature"))
     if feature_files:
-        gradle_wrapper = "gradlew.bat" if is_windows else "gradlew"
-        if (repo_root / "build.gradle").exists() or (repo_root / "build.gradle.kts").exists():
-            suites.append({
-                "label": "Cucumber acceptance tests",
-                "cwd": str(repo_root),
-                "command": [gradle_wrapper, "cucumber", "--info"],
-            })
+        suites.append({
+            "label": "Cucumber acceptance tests",
+            "cwd": str(repo_root),
+            "command": ["gradle", "cucumber", "--info"],
+        })
+
 
     # Node / Vue / Vitest
     package_json = repo_root / "package.json"
