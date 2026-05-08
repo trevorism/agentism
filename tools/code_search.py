@@ -1,13 +1,9 @@
 """Local code search tool – ripgrep-backed with Python fallback."""
 from __future__ import annotations
 
-import os
 import subprocess
 from pathlib import Path
-
 from langchain_core.tools import tool
-
-from agentism.config import DEV_DIR
 from tools.discovery_filters import rg_allow_globs, rg_exclude_globs, should_ignore_relative_path
 from tools.repo_paths import repo_path
 
@@ -41,7 +37,7 @@ def _rg_search(pattern: str, search_dir: Path, file_glob: str, max_results: int)
         args.extend(["--glob", glob])
     # Add include globs for allowed file types
     for glob in rg_allow_globs():
-        args.extend(["--include", glob])
+        args.extend(["--glob", glob])
     args.extend([pattern, str(search_dir)])
 
     try:
@@ -66,7 +62,6 @@ def _rg_search(pattern: str, search_dir: Path, file_glob: str, max_results: int)
 
 def _python_search(pattern: str, search_dir: Path, file_glob: str, max_results: int) -> str:
     """Fallback pure-Python search when ripgrep is unavailable."""
-    import fnmatch
     import re
 
     try:
