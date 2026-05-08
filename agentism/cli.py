@@ -12,8 +12,6 @@ def parse_args() -> argparse.Namespace:
                         help="Batch-process all open issues in a repo matching --label")
     parser.add_argument("--label", metavar="LABEL", default="agent-ready",
                         help="Issue label filter for --issues (default: agent-ready)")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Preview writes/commits without making real changes")
     parser.add_argument("--debug", action="store_true",
                         help="Print raw LangGraph chunk keys each turn for debugging")
     parser.add_argument("--chunk-timeout", metavar="SECS", type=float, default=1200.0,

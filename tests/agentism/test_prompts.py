@@ -94,6 +94,7 @@ def test_base_system_prompt_requires_exact_tool_names():
     assert "supply every required parameter exactly as listed" in BASE_SYSTEM_PROMPT
     assert "Do not mix GitHub MCP parameter names with local tool parameter names" in BASE_SYSTEM_PROMPT
     assert "`list_repo_files` uses `repo_name`" in BASE_SYSTEM_PROMPT
+    assert "`search_local_code` requires `repo_name`" in BASE_SYSTEM_PROMPT
     assert "list_repo_files" in BASE_SYSTEM_PROMPT
     assert "list_files_in_repo" in BASE_SYSTEM_PROMPT
 
@@ -230,9 +231,13 @@ def test_build_system_prompt_restricts_param_hints_to_high_risk_tools():
     def custom_tool(some_param):
         return "custom"
 
+    def search_local_code_tool(pattern, repo_name, file_glob="**/*", max_results=50):
+        return "match"
+
     tools = [
         SimpleNamespace(name="create_file", description="Create file.", func=create_file_tool),
         SimpleNamespace(name="list_repo_files", description="List files.", func=list_repo_files_tool),
+        SimpleNamespace(name="search_local_code", description="Search local code.", func=search_local_code_tool),
         SimpleNamespace(name="custom_non_critical_tool", description="Custom tool.", func=custom_tool),
     ]
 
@@ -241,6 +246,7 @@ def test_build_system_prompt_restricts_param_hints_to_high_risk_tools():
     # High-risk tools should have parameter hints
     assert "- create_file → required: `repo_name`, `relative_path`, `content`" in prompt
     assert "- list_repo_files → required: `repo_name`" in prompt
+    assert "- search_local_code → required: `pattern`, `repo_name`" in prompt
 
     # Non-high-risk tools should NOT have parameter hints shown
     assert "custom_non_critical_tool" not in prompt.split("## Local tool parameter names")[1] if "## Local tool parameter names" in prompt else True

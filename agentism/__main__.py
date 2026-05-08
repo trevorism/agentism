@@ -2,7 +2,6 @@
 
 import asyncio
 
-from agentism import config
 from agentism.app import main_async
 from agentism.cli import parse_args, startup_plan
 from agentism.prompts import issue_ref_to_prompt
@@ -10,8 +9,6 @@ from agentism.prompts import issue_ref_to_prompt
 
 def main() -> None:
     args = parse_args()
-    if args.dry_run:
-        config.DRY_RUN = True
 
     initial_prompt, batch_issues = startup_plan(args, issue_ref_to_prompt)
 

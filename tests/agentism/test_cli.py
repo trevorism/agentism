@@ -9,7 +9,6 @@ def test_startup_plan_batch_issues_requires_autonomous_repo_inspection():
         label="agent-ready",
         issue=None,
         session="main",
-        dry_run=False,
         debug=False,
         chunk_timeout=1200.0,
     )
@@ -30,7 +29,6 @@ def test_startup_plan_issue_uses_issue_prompt_function():
         label="agent-ready",
         issue="owner/repo#7",
         session="main",
-        dry_run=False,
         debug=False,
         chunk_timeout=1200.0,
     )

@@ -44,25 +44,8 @@ def test_git_sync_master_success(monkeypatch):
 
     monkeypatch.setitem(sys.modules, "git", fake_git)
     monkeypatch.setattr("tools.git_tool._repo_path", lambda repo_name: repo_name)
-    monkeypatch.setattr("tools.git_tool.config.DRY_RUN", False)
 
     result = git_sync_master.func("repo")
 
     assert "Checked out 'master'" in result
     assert calls == [("checkout", "master"), ("pull", None)]
-
-
-def test_git_sync_master_dry_run(monkeypatch):
-    fake_git = SimpleNamespace(Repo=lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("should not be called")))
-    monkeypatch.setitem(sys.modules, "git", fake_git)
-    monkeypatch.setattr("tools.git_tool.config.DRY_RUN", True)
-
-    try:
-        result = git_sync_master.func("repo")
-    finally:
-        monkeypatch.setattr("tools.git_tool.config.DRY_RUN", False)
-
-    assert "[DRY-RUN]" in result
-    assert "master" in result
-
-

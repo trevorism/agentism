@@ -1,6 +1,8 @@
+"""Tests for discovery filters, file listing, and code search noise exclusion."""
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 from tools.code_search import search_local_code
 from tools.discovery_filters import should_ignore_relative_path
@@ -32,7 +34,6 @@ def test_list_repo_files_excludes_noise_files(tmp_path: Path):
 
     output = list_repo_files.invoke({
         "repo_name": str(tmp_path),
-        "pattern": "**/*",
     })
     normalized = output.replace("\\", "/")
 
@@ -63,5 +64,28 @@ def test_search_local_code_fallback_excludes_lock_files(tmp_path: Path, monkeypa
     assert "uv.lock" not in normalized
 
 
+def test_search_local_code_rg_uses_glob_not_include(tmp_path: Path, monkeypatch):
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "main.py").write_text("TODO: keep\n", encoding="utf-8")
 
+    calls = {}
 
+    def fake_run(args, capture_output, text, check, timeout):
+        calls["args"] = args
+        return SimpleNamespace(stdout="src/main.py:1:TODO: keep\n")
+
+    monkeypatch.setattr("tools.code_search._rg_available", lambda: True)
+    monkeypatch.setattr("tools.code_search.subprocess.run", fake_run)
+
+    output = search_local_code.invoke(
+        {
+            "pattern": "TODO",
+            "repo_name": str(tmp_path),
+            "file_glob": "**/*",
+            "max_results": 20,
+        }
+    )
+
+    assert "src/main.py" in output
+    assert "--include" not in calls["args"]
+    assert "--glob" in calls["args"]

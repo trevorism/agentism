@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from langchain_core.tools import tool
 from agentism.config import WORKSPACE_DIR, DEV_DIR
-from agentism import config
 from tools.repo_paths import find_repo, repo_path
 
 # Primary dev directory – pre-existing checkouts are found here before cloning.
@@ -73,13 +72,15 @@ def git_status(repo_name: str) -> str:
 
     try:
         repo = git.Repo(str(_repo_path(repo_name)))
-        changed = [item.a_path for item in repo.index.diff(None)]
+        # repo.index.diff(None) = unstaged changes (working tree vs index)
+        # repo.index.diff("HEAD") = staged changes (index vs HEAD)
+        unstaged = [item.a_path for item in repo.index.diff(None)]
         staged = [item.a_path for item in repo.index.diff("HEAD")] if repo.head.is_valid() else []
         untracked = repo.untracked_files
         return (
             f"Branch: {repo.active_branch.name}\n"
             f"Staged:    {staged}\n"
-            f"Unstaged:  {changed}\n"
+            f"Unstaged:  {unstaged}\n"
             f"Untracked: {untracked}"
         )
     except Exception as e:
@@ -107,16 +108,14 @@ def git_create_branch(repo_name: str, branch_name: str, from_branch: str = "mast
     if branch_name in PROTECTED_BRANCHES:
         return f"Error: '{branch_name}' is a protected branch name. Choose a feature branch name."
 
-    if config.DRY_RUN:
-        return f"[DRY-RUN] Would create branch '{branch_name}' from '{from_branch}' in '{repo_name}'."
-
     try:
         repo = git.Repo(str(_repo_path(repo_name)))
         # First fetch to ensure we have the latest remote refs
         repo.remotes.origin.fetch()
         # Checkout (or reset) to the remote tracking branch to get latest state
         remote_branch = f"origin/{from_branch}"
-        if remote_branch in [ref.name for ref in repo.remote_refs]:
+        # Check if remote tracking branch exists using repo.refs
+        if remote_branch in [ref.name for ref in repo.refs]:
             repo.git.checkout(remote_branch)
         else:
             # Fall back to local branch if remote tracking doesn't exist
@@ -153,19 +152,6 @@ def git_commit_and_push(repo_name: str, message: str) -> str:
                 f"Error: currently on protected branch '{current_branch}'. "
                 f"Use git_create_branch to create a feature branch first, then commit."
             )
-        if config.DRY_RUN:
-            repo.git.add(A=True)
-            staged = [item.a_path for item in repo.index.diff("HEAD")] if repo.head.is_valid() else []
-            untracked = repo.untracked_files
-            changed = [item.a_path for item in repo.index.diff(None)]
-            all_changes = sorted(set(staged + untracked + changed))
-            repo.git.reset()   # undo the staging – don't leave a messy state
-            return (
-                f"[DRY-RUN] Would commit: {message!r}\n"
-                f"  Branch : {current_branch}\n"
-                f"  Changes: {all_changes}\n"
-                f"  Would push to origin/{current_branch}"
-            )
         repo.git.add(A=True)
         if not repo.index.diff("HEAD") and not repo.untracked_files:
             return "Nothing to commit – working tree is clean."
@@ -191,8 +177,6 @@ def git_sync_master(repo_name: str) -> str:
     """
     import git
 
-    if config.DRY_RUN:
-        return f"[DRY-RUN] Would checkout 'master' and pull latest from origin in '{repo_name}'."
 
     try:
         repo = git.Repo(str(_repo_path(repo_name)))

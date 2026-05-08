@@ -28,19 +28,6 @@ def test_create_file_rejects_existing_file(tmp_path: Path):
     assert existing.read_text(encoding="utf-8") == "old\n"
 
 
-def test_create_file_respects_dry_run(tmp_path: Path, monkeypatch):
-    repo_dir = tmp_path / "repo"
-    repo_dir.mkdir()
-
-    monkeypatch.setattr("tools.file_tool.config.DRY_RUN", True)
-    try:
-        result = create_file.func(str(repo_dir), "dry/file.py", "print('dry')\n")
-    finally:
-        monkeypatch.setattr("tools.file_tool.config.DRY_RUN", False)
-
-    assert "[DRY-RUN] Would create file" in result
-    assert not (repo_dir / "dry" / "file.py").exists()
-
 
 def test_read_file_in_repo_returns_contents(tmp_path: Path):
     repo_dir = tmp_path / "repo"
@@ -101,4 +88,16 @@ def test_list_repo_files_truncates_large_results(tmp_path: Path):
     lines = output.splitlines()
     assert len(lines) == 3
     assert lines[-1].startswith("... truncated at 2 files")
+
+
+def test_list_repo_files_does_not_mark_truncated_when_exact_limit(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    (repo_dir / "src").mkdir(parents=True)
+    for idx in range(2):
+        (repo_dir / "src" / f"f{idx}.py").write_text("pass\n", encoding="utf-8")
+
+    output = list_repo_files.func(str(repo_dir), max_results=2)
+
+    assert "truncated at" not in output
+
 
