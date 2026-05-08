@@ -9,8 +9,12 @@ from tools.discovery_filters import should_ignore_relative_path
 from tools.repo_paths import repo_path
 
 
-def _list_files(repo_root: Path, recursive: bool = True, max_results: int = 200) -> list[Path]:
-    """List files in a repository, filtering out noise files."""
+def _list_files(
+    repo_root: Path,
+    recursive: bool = True,
+    max_results: int = 200,
+) -> tuple[list[Path], bool]:
+    """List filtered files and whether the output had to be truncated."""
     files = []
     if recursive:
         iterator = repo_root.rglob("*")
@@ -24,7 +28,8 @@ def _list_files(repo_root: Path, recursive: bool = True, max_results: int = 200)
             continue
         files.append(rel)
     files.sort()
-    return files[:max_results]
+    is_truncated = len(files) > max_results
+    return files[:max_results], is_truncated
 
 
 @tool
@@ -88,9 +93,9 @@ def list_repo_files(
     if not repo_root.exists():
         return f"Repo not found: {repo_root}. Use git_clone first."
 
-    files = _list_files(repo_root, recursive=recursive, max_results=max_results)
+    files, is_truncated = _list_files(repo_root, recursive=recursive, max_results=max_results)
     output = "\n".join(str(f) for f in files)
-    if len(files) >= max_results:
+    if is_truncated:
         output += f"\n... truncated at {max_results} files (use max_results to show more)"
     return output
 

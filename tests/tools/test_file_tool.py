@@ -89,3 +89,15 @@ def test_list_repo_files_truncates_large_results(tmp_path: Path):
     assert len(lines) == 3
     assert lines[-1].startswith("... truncated at 2 files")
 
+
+def test_list_repo_files_does_not_mark_truncated_when_exact_limit(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    (repo_dir / "src").mkdir(parents=True)
+    for idx in range(2):
+        (repo_dir / "src" / f"f{idx}.py").write_text("pass\n", encoding="utf-8")
+
+    output = list_repo_files.func(str(repo_dir), max_results=2)
+
+    assert "truncated at" not in output
+
+
