@@ -5,8 +5,6 @@ from pathlib import Path
 
 from langchain_core.tools import tool
 
-from agentism import config
-from agentism.config import DEV_DIR, WORKSPACE_DIR
 from tools.discovery_filters import should_ignore_relative_path
 from tools.repo_paths import repo_path
 
@@ -168,8 +166,6 @@ def create_file(repo_name: str, relative_path: str, content: str) -> str:
         return f"Error: file already exists: {target}"
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
-        if config.DRY_RUN:
-            return f"[DRY-RUN] Would create file: {target}"
         target.write_text(content, encoding="utf-8")
         return f"Created: {target}"
     except Exception as e:

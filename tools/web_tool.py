@@ -13,7 +13,7 @@ import httpx
 # Derive the platform hostname once so no org-specific string is hardcoded here.
 _PLATFORM_HOST = urlparse(PLATFORM_BASE_URL).hostname or ""
 
-# ── OpenAPI spec cache ────────────────────────────────────────────────────────
+# ── OpenAPI spec cache ─────────────────────────────────────────────────────
 # Keyed by base URL, value is a tuple of (spec_text, cached_timestamp).
 # Specs expire after 24 hours to avoid stale documentation.
 _SPEC_CACHE: dict[str, tuple[str, datetime]] = {}
@@ -190,7 +190,7 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
     if not force_refresh and base in _SPEC_CACHE:
         spec_text, cached_time = _SPEC_CACHE[base]
         if datetime.now() - cached_time < _SPEC_CACHE_TTL:
-            return f"[cached] {spec_text}"
+            return spec_text
         # Spec has expired; remove it so we fetch fresh below
         del _SPEC_CACHE[base]
 
@@ -207,7 +207,7 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
                     # Return a size-limited version to avoid flooding the context window
                     if len(spec) > 8000:
                         return spec[:8000] + f"\n\n… (truncated, full spec is {len(spec)} chars, fetched from {url})"
-                    return f"# Spec from {url}\n{spec}"
+                    return spec
             except Exception:
                 continue
 

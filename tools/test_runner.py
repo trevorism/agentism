@@ -26,23 +26,29 @@ def _detect_test_commands(repo_root: Path) -> list[dict]:
     """
     suites = []
 
-    # Groovy / Gradle unit tests
-    if (repo_root / "build.gradle").exists():
+    is_windows = platform.system() == "Windows"
+    gradle_wrapper = "gradlew.bat" if is_windows else "gradlew"
+
+    # Groovy / Gradle unit tests – prefer wrapper, fall back to system gradle
+    gradle_cmd = [gradle_wrapper, "test", "--info"] if (repo_root / gradle_wrapper).exists() \
+        else ["gradle", "test", "--info"]
+    if (repo_root / "build.gradle").exists() or (repo_root / "build.gradle.kts").exists():
         suites.append({
-            "label": "Groovy/Gradle tests (system gradle)",
+            "label": "Groovy/Gradle tests",
             "cwd": str(repo_root),
-            "command": ["gradle", "test", "--info"],
+            "command": gradle_cmd,
         })
 
     # Cucumber acceptance tests (look for a cucumber-specific gradle task or feature files)
     feature_files = list(repo_root.rglob("*.feature"))
+    cucumber_gradle_cmd = [gradle_wrapper, "cucumber", "--info"] if (repo_root / gradle_wrapper).exists() \
+        else ["gradle", "cucumber", "--info"]
     if feature_files:
         suites.append({
             "label": "Cucumber acceptance tests",
             "cwd": str(repo_root),
-            "command": ["gradle", "cucumber", "--info"],
+            "command": cucumber_gradle_cmd,
         })
-
 
     # Node / Vue / Vitest
     package_json = repo_root / "package.json"
@@ -83,9 +89,9 @@ def run_tests(repo_name: str, suite: str = "all") -> str:
     Run the test suite(s) for a local repository.
 
     Automatically detects the repo type:
-    - Groovy/Micronaut repos (build.gradle)  → `gradlew test`
+    - Groovy/Micronaut repos (build.gradle)  → `gradlew test` (or `gradle test`)
     - Vue/JS repos (package.json)            → `npx vitest run` or `npm test`
-    - Cucumber feature files present         → `gradlew cucumber`
+    - Cucumber feature files present         → `gradlew cucumber` (or `gradle cucumber`)
 
     Always run tests after writing code to verify correctness before committing.
 

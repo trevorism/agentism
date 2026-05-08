@@ -1,134 +1,128 @@
-"""Local code search tool – fast text/regex search across repos using ripgrep or Python fallback."""
+"""Local code search tool – ripgrep-backed with Python fallback."""
 from __future__ import annotations
 
-import re
+import os
 import subprocess
 from pathlib import Path
+
 from langchain_core.tools import tool
-from agentism.config import DEV_DIR, WORKSPACE_DIR
-from tools.discovery_filters import should_ignore_relative_path
+
+from agentism.config import DEV_DIR
+from tools.discovery_filters import rg_allow_globs, rg_exclude_globs, should_ignore_relative_path
+from tools.repo_paths import repo_path
+
+_MAX_RESULTS = 50
 
 
 def _rg_available() -> bool:
+    """Check if ripgrep is installed and usable."""
     try:
-        subprocess.run(["rg", "--version"], capture_output=True, check=True, timeout=5)
+        subprocess.run(
+            ["rg", "--version"],
+            capture_output=True,
+            check=True,
+        )
         return True
-    except Exception:
+    except (FileNotFoundError, subprocess.CalledProcessError):
         return False
 
 
-def _search_with_rg(
-    pattern: str,
-    search_root: Path,
-    file_glob: str,
-    max_results: int,
-) -> str:
-    """Search using ripgrep with proper exclusion/inclusion handling."""
-    # Use --exclude for directory exclusions and --glob for file type inclusions
-    # This is the standard and most reliable way to combine them in ripgrep
+def _rg_search(pattern: str, search_dir: Path, file_glob: str, max_results: int) -> str:
+    """Execute ripgrep search with proper include/exclude globs."""
     args = [
         "rg",
-        "--heading",
-        "--line-number",
-        "--color=never",
-        f"--max-count={max_results}",
-        pattern,
-        str(search_root),
+        "--glob", file_glob,
+        "--no-heading",
+        "--color", "never",
+        "--max-count", str(max_results),
     ]
+    # Add exclude globs for directories and files to skip
+    for glob in rg_exclude_globs():
+        args.extend(["--glob", glob])
+    # Add include globs for allowed file types
+    for glob in rg_allow_globs():
+        args.extend(["--include", glob])
+    args.extend([pattern, str(search_dir)])
 
-    # Add directory exclusions using --exclude
-    for dirname in (".git", "node_modules", ".gradle", "build", "target", ".venv", "__pycache__"):
-        args.extend(["--exclude", f"{dirname}/**"])
-
-    # Add file type inclusions using --glob
-    if file_glob and file_glob != "*":
-        args.extend(["--glob", file_glob])
-
-    proc = subprocess.run(args, capture_output=True, text=True, timeout=30)
-    output = proc.stdout.strip()
-    if not output and proc.stderr.strip():
-        return f"ripgrep error: {proc.stderr.strip()}"
-    return output or f"No matches for '{pattern}' in {search_root}"
-
-
-def _search_python_fallback(
-    pattern: str,
-    search_root: Path,
-    file_glob: str,
-    max_results: int,
-) -> str:
-    """Pure-Python regex search with proper filtering."""
     try:
-        compiled = re.compile(pattern, re.IGNORECASE)
-    except re.error as e:
-        return f"Invalid regex pattern: {e}"
+        result = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=30,
+        )
+        return result.stdout or "No matches found"
+    except subprocess.TimeoutExpired:
+        return "Search timed out after 30 seconds"
+    except subprocess.CalledProcessError as e:
+        # Exit code 1 means no matches found in ripgrep
+        if e.returncode == 1:
+            return "No matches found"
+        return f"Search failed: {e.stderr}"
+    except FileNotFoundError:
+        return "ripgrep (rg) not found. Install from https://github.com/BurntSushi/ripgrep"
+
+
+def _python_search(pattern: str, search_dir: Path, file_glob: str, max_results: int) -> str:
+    """Fallback pure-Python search when ripgrep is unavailable."""
+    import fnmatch
+    import re
+
+    try:
+        regex = re.compile(pattern, re.IGNORECASE)
+    except re.error:
+        regex = re.compile(re.escape(pattern), re.IGNORECASE)
 
     matches = []
-    # Determine which files to search based on file_glob
-    rglob_pattern = file_glob if file_glob != "*" else "**/*"
-
-    for filepath in sorted(search_root.rglob(rglob_pattern)):
+    # Use rglob with the file_glob pattern to limit file types
+    for filepath in search_dir.rglob(file_glob):
         if not filepath.is_file():
             continue
-        rel = filepath.relative_to(search_root)
+        rel = filepath.relative_to(search_dir)
         if should_ignore_relative_path(rel):
             continue
         try:
-            for lineno, line in enumerate(filepath.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-                if compiled.search(line):
-                    matches.append(f"{rel}:{lineno}: {line.strip()}")
+            content = filepath.read_text(encoding="utf-8", errors="ignore")
+            for line_no, line in enumerate(content.splitlines(), 1):
+                if regex.search(line):
+                    matches.append(f"{rel}:{line_no}:{line.strip()}")
                     if len(matches) >= max_results:
-                        matches.append(f"… (stopped at {max_results} results)")
                         return "\n".join(matches)
         except Exception:
             continue
 
-    return "\n".join(matches) if matches else f"No matches for '{pattern}' in {search_root}"
+    return "\n".join(matches) if matches else "No matches found"
 
 
 @tool
 def search_local_code(
     pattern: str,
-    repo_name: str = "",
-    file_glob: str = "*",
-    max_results: int = 50,
+    repo_name: str,
+    file_glob: str = "**/*",
+    max_results: int = _MAX_RESULTS,
 ) -> str:
     """
-    Search for a text pattern or regex across local source files.
+    Search for text patterns across local source files in a repository.
 
-    Uses ripgrep (rg) if available, otherwise falls back to a pure-Python search.
-    Automatically skips .git, node_modules, build, and .gradle directories.
-
-    Use this to:
-    - Find all usages of a function, class, or variable name across repos
-    - Locate where a specific endpoint or route is defined
-    - Understand what already exists before writing new code
+    Automatically detects whether ripgrep (rg) is available and falls back
+    to a pure-Python search if not. The file_glob parameter limits the
+    search to matching file patterns (default: all files).
 
     Args:
-        pattern:     Text or regex to search for (case-insensitive).
-        repo_name:   Limit search to one repo by name (checked in DEV_DIR first).
-                     Leave empty to search ALL repos under DEV_DIR.
-        file_glob:   Glob pattern to filter file types (e.g. "*.groovy", "*.ts", "*.ps1").
-                     Default "*" searches all files.
-        max_results: Maximum number of matching lines to return (default 50).
+        pattern:     Regex or plain-text pattern to search for.
+        repo_name:   Short repo name (checked in DEV_DIR first) or absolute path.
+        file_glob:   Glob pattern for file types to search (default: "**/*").
+        max_results: Maximum number of matching lines to return.
 
     Returns:
-        Matching lines with file paths and line numbers, or "No matches found".
+        Matching lines in `file:line_number:content` format, or an error message.
     """
-    if repo_name:
-        p = Path(repo_name)
-        if p.is_absolute():
-            search_root = p
-        else:
-            primary = DEV_DIR / repo_name
-            search_root = primary if primary.exists() else WORKSPACE_DIR / repo_name
-        if not search_root.exists():
-            return f"Repo not found: {search_root}"
-    else:
-        search_root = DEV_DIR
-        if not search_root.exists():
-            return f"DEV_DIR not found: {search_root}"
+    search_dir = repo_path(repo_name)
+    if not search_dir.exists():
+        return f"Repo not found: {search_dir}. Use git_clone first."
 
     if _rg_available():
-        return _search_with_rg(pattern, search_root, file_glob, max_results)
-    return _search_python_fallback(pattern, search_root, file_glob, max_results)
+        return _rg_search(pattern, search_dir, file_glob, max_results)
+    else:
+        return _python_search(pattern, search_dir, file_glob, max_results)

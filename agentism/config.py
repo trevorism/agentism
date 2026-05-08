@@ -75,6 +75,4 @@ MEMORY_DB: str = _optional("MEMORY_DB", "memory.db")
 WORKSPACE_DIR: Path = _path("WORKSPACE_DIR", "./repos")
 WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 
-# -- Dry run --
-DRY_RUN: bool = os.getenv("DRY_RUN", "false").lower() == "true"
 

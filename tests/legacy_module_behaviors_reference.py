@@ -228,16 +228,6 @@ class TestGitTool:
         assert "Written:" in result
         assert (repo_dir / "test.txt").read_text() == "content"
 
-    def test_write_file_in_repo_dry_run(self, monkeypatch, tmp_path):
-        from tools.git_tool import write_file_in_repo
-        import config
-        monkeypatch.setattr(config, "DRY_RUN", True)
-        repo_dir = tmp_path / "repo"
-        repo_dir.mkdir()
-        monkeypatch.setattr("tools.git_tool.DEV_DIR", tmp_path / "dev")
-        monkeypatch.setattr("tools.git_tool.WORKSPACE_DIR", repo_dir)
-        result = write_file_in_repo.func("repo", "test.txt", "content")
-        assert "[DRY-RUN]" in result
 
     def test_git_status_returns_status(self, monkeypatch, tmp_path):
         from tools.git_tool import git_status

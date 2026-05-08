@@ -1,3 +1,4 @@
+"""Tests for discovery filters, file listing, and code search noise exclusion."""
 from __future__ import annotations
 
 from pathlib import Path
@@ -32,7 +33,6 @@ def test_list_repo_files_excludes_noise_files(tmp_path: Path):
 
     output = list_repo_files.invoke({
         "repo_name": str(tmp_path),
-        "pattern": "**/*",
     })
     normalized = output.replace("\\", "/")
 
@@ -61,7 +61,3 @@ def test_search_local_code_fallback_excludes_lock_files(tmp_path: Path, monkeypa
 
     assert "src/main.py" in normalized
     assert "uv.lock" not in normalized
-
-
-
-

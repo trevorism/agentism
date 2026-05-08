@@ -37,9 +37,8 @@ def _ollama_client_kwargs(model_name: str) -> dict:
 
 
 def print_welcome() -> None:
-    dry_tag = "  [bold red][DRY-RUN][/bold red]" if config.DRY_RUN else ""
     console.print(Panel(
-        f"[bold cyan]Agentism[/bold cyan]  🤖{dry_tag}\n"
+        f"[bold cyan]Agentism[/bold cyan]  🤖\n"
         f"Model : [green]{config.OLLAMA_MODEL}[/green] @ {config.OLLAMA_BASE_URL}\n"
         f"LLM opts: temperature={config.OLLAMA_TEMPERATURE}, top_p={config.OLLAMA_TOP_P}\n"
         f"Memory: [green]{config.MEMORY_DB}[/green] (SQLite)\n"
@@ -203,10 +202,9 @@ async def main_async(
                 state.session_history.append((user_input, response))
                 state.session_tokens.add(tokens)
                 state.last_user_input = user_input
-                dry_tag = " [dim red](DRY-RUN)[/dim red]" if config.DRY_RUN else ""
                 console.print(Panel(
                     Markdown(response) if response else "[dim](no response)[/dim]",
-                    title=f"[bold green]Agent[/bold green] [dim](thread: {state.thread_id})[/dim]{dry_tag}",
+                    title=f"[bold green]Agent[/bold green] [dim](thread: {state.thread_id})[/dim]",
                     border_style="green",
                 ))
                 console.print()
