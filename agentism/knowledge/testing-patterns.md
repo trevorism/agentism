@@ -6,12 +6,12 @@ Rules for writing and running tests on this platform.
 
 ## Test types and tools
 
-| Layer | Tool                    | Location                         |
-|---|-------------------------|----------------------------------|
-| Backend unit/integration | Junit (Groovy)          | `src/test/groovy/`               |
-| Frontend unit | Vitest                  | `src/app/*.spec.ts`              |
-| End-to-end / BDD | Cucumber + Groovy steps | `src/acceptance/groovy/` |
-
+| Layer                    | Tool                    | Location                |
+|--------------------------|-------------------------|-------------------------|
+| Backend unit/integration | Junit (Groovy)          | `src/test/groovy/`      |
+| Frontend unit            | Vitest                  | `src/app/*.spec.ts`     |
+| End-to-end / BDD         | Cucumber + Groovy steps | `src/acceptance/groovy/` |
+| Python tests             | pytest                  | `test/*.py`             |
 ---
 
 ## Vitest conventions

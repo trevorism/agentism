@@ -7,14 +7,15 @@ Update this file as the stack evolves.
 
 ## Technology stack
 
-| Layer | Technology                                                                          |
-|---|-------------------------------------------------------------------------------------|
-| Backend | Groovy, Micronaut framework                                                         |
-| Frontend | Vue 3, Vuestic, Javascript, Tailwind                                                |
-| Backend tests | Junit (Groovy) unit tests in src/main/test, Cucumber Groovy (BDD) in src/acceptance |
+| Layer          | Technology                                                                          |
+|----------------|-------------------------------------------------------------------------------------|
+| Backend        | Groovy, Micronaut framework                                                         |
+| Frontend       | Vue 3, Vuestic, Javascript, Tailwind                                                |
+| Backend tests  | Junit (Groovy) unit tests in src/main/test, Cucumber Groovy (BDD) in src/acceptance |
 | Frontend tests | Vitest                                                                              |
-| CI / hosting | GitHub Actions, GitHub-hosted repos                                                 |
+| CI / hosting   | GitHub Actions, GitHub-hosted repos                                                 |
 | Client tooling | PowerShell                                                                          |
+| AI/ML          | Python                                                                              |
 ---
 
 ## Repo conventions

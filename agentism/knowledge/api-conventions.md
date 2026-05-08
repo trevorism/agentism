@@ -1,10 +1,9 @@
 # API conventions
-
 Rules for designing and calling REST APIs on this platform.
-
 ---
 
 ## URL design
+Prefer RESTful standards
 
 - All paths are kebabCase: `/userProfiles` or `/reportRuns`.
 - Nest related resources: `/projects/{id}/members`, not a flat `/project-members?projectId=`.
@@ -29,7 +28,7 @@ Rules for designing and calling REST APIs on this platform.
 
 - All request and response bodies are JSON; never plain text or form-encoded for API calls.
 - Timestamps are ISO-8601 UTC strings: `"2024-03-01T12:00:00Z"`, represented using java.util.Date
-- Objects have an id field of type String
+- Resources have an id field of type String
 
 ---
 
