@@ -1,37 +1,120 @@
-"""Repository file tools: read, list, create, and write files."""
+"""File operations for local repositories – read, write, create, and list."""
 from __future__ import annotations
 
 from pathlib import Path
 
-from agentism import config
 from langchain_core.tools import tool
 
+from agentism import config
+from agentism.config import DEV_DIR, WORKSPACE_DIR
 from tools.discovery_filters import should_ignore_relative_path
 from tools.repo_paths import repo_path
 
-# Entry-point filenames checked (in priority order) when surveying a repo.
-_ENTRY_POINT_NAMES = [
-    "README.md", "readme.md", "README.rst", "readme.rst",
-    "pyproject.toml", "setup.py", "setup.cfg",
-    "package.json",
-    "build.gradle", "build.gradle.kts", "settings.gradle", "settings.gradle.kts", "pom.xml",
-    "Makefile", "makefile",
-    "Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-    ".env.example",
-    "application.yml", "application.yaml", "application.properties",
-]
 
-_MAX_OVERVIEW_FILES = 10        # max entry-point files to inline
+def _list_files(repo_root: Path, recursive: bool = True, max_results: int = 200) -> list[Path]:
+    """List files in a repository, filtering out noise files."""
+    files = []
+    if recursive:
+        iterator = repo_root.rglob("*")
+    else:
+        iterator = repo_root.glob("*")
+    for item in iterator:
+        if not item.is_file():
+            continue
+        rel = item.relative_to(repo_root)
+        if should_ignore_relative_path(rel):
+            continue
+        files.append(rel)
+    files.sort()
+    return files[:max_results]
+
+
+@tool
+def read_repo_overview(repo_name: str) -> str:
+    """
+    Return a concise overview of a local repository (top-level files + first few entry points).
+
+    Args:
+        repo_name: Short name of the repo folder in the workspace, or absolute path.
+
+    Returns:
+        Overview of top-level files and key entry points, or an error message.
+    """
+    repo_root = repo_path(repo_name)
+    if not repo_root.exists():
+        return f"Repo not found: {repo_root}. Use git_clone first."
+
+    # List top-level files and directories
+    top_level = []
+    for item in sorted(repo_root.iterdir()):
+        if should_ignore_relative_path(item.relative_to(repo_root)):
+            continue
+        kind = "dir" if item.is_dir() else "file"
+        top_level.append(f"  [{kind}] {item.name}")
+
+    output = f"Repository: {repo_root.name}\nTop-level items:\n"
+    output += "\n".join(top_level[:50])
+
+    # Look for common entry points
+    entry_points = []
+    for pattern in ["main.py", "app.py", "__main__.py", "index.js", "index.ts", "program.cs", "Cargo.toml", "pom.xml", "build.gradle", "package.json"]:
+        ep = repo_root / pattern
+        if ep.exists():
+            entry_points.append(f"  - {pattern}")
+
+    if entry_points:
+        output += "\n\nEntry points:\n"
+        output += "\n".join(entry_points)
+
+    return output
+
+
+@tool
+def list_repo_files(
+    repo_name: str,
+    recursive: bool = True,
+    max_results: int = 200,
+) -> str:
+    """
+    List files in a local repository, filtering out noise files.
+
+    Args:
+        repo_name: Short name of the repo folder in the workspace, or absolute path.
+        recursive: If True, list files recursively through all subdirectories.
+        max_results: Maximum number of files to return.
+
+    Returns:
+        Newline-separated list of relative file paths, or an error message.
+    """
+    repo_root = repo_path(repo_name)
+    if not repo_root.exists():
+        return f"Repo not found: {repo_root}. Use git_clone first."
+
+    files = _list_files(repo_root, recursive=recursive, max_results=max_results)
+    output = "\n".join(str(f) for f in files)
+    if len(files) >= max_results:
+        output += f"\n... truncated at {max_results} files (use max_results to show more)"
+    return output
 
 
 @tool
 def read_file_in_repo(repo_name: str, relative_path: str) -> str:
-    """Read the full contents of a file inside a local repository."""
-    target = repo_path(repo_name) / relative_path
+    """
+    Read the contents of a file in a local repository.
+
+    Args:
+        repo_name: Short name of the repo folder in the workspace, or absolute path.
+        relative_path: Path to the file relative to the repo root.
+
+    Returns:
+        File contents as text, or an error message.
+    """
+    repo_root = repo_path(repo_name)
+    target = repo_root / relative_path
     if not target.exists():
         return f"File not found: {target}"
     if not target.is_file():
-        return f"Path is not a file: {target}"
+        return f"Not a file: {target}"
     try:
         return target.read_text(encoding="utf-8")
     except Exception as e:
@@ -39,123 +122,55 @@ def read_file_in_repo(repo_name: str, relative_path: str) -> str:
 
 
 @tool
-def create_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
+def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
+    """
+    Write content to a file in a local repository.
+
+    Creates parent directories if needed. Overwrites existing files.
+
+    Args:
+        repo_name: Short name of the repo folder in the workspace, or absolute path.
+        relative_path: Path to the file relative to the repo root.
+        content: Text content to write.
+
+    Returns:
+        Confirmation message, or an error message.
+    """
+    repo_root = repo_path(repo_name)
+    target = repo_root / relative_path
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+        return f"Written: {target}"
+    except Exception as e:
+        return f"Error writing file: {e}"
+
+
+@tool
+def create_file(repo_name: str, relative_path: str, content: str) -> str:
     """
     Create a new file in a local repository.
 
+    Fails if the file already exists to prevent accidental overwrites.
+    Use write_file_in_repo to overwrite existing files intentionally.
+
     Args:
         repo_name: Short name of the repo folder in the workspace, or absolute path.
-        relative_path: Path relative to the repo root (e.g. "src/main.py").
-        content: File content to write.
+        relative_path: Path to the file relative to the repo root.
+        content: Text content to write.
 
     Returns:
-        Confirmation message, or an error.
+        Confirmation message, or an error message.
     """
-    if config.DRY_RUN:
-        return f"[DRY-RUN] Would create file at '{relative_path}' in '{repo_name}'."
-    target = repo_path(repo_name) / relative_path
+    repo_root = repo_path(repo_name)
+    target = repo_root / relative_path
     if target.exists():
-        return f"Error: file already exists at {target}"
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
-    return f"Created: {target}"
-
-
-# Backwards-compatible alias for tools/__init__.py
-create_file = create_file_in_repo
-
-
-@tool
-def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
-    """
-    Overwrite a file in a local repository (creates parent dirs if needed).
-
-    Args:
-        repo_name: Short name of the repo folder in the workspace, or absolute path.
-        relative_path: Path relative to the repo root (e.g. "src/main.py").
-        content: File content to write.
-
-    Returns:
-        Confirmation message, or an error.
-    """
-    if config.DRY_RUN:
-        return f"[DRY-RUN] Would write to file at '{relative_path}' in '{repo_name}'."
-    target = repo_path(repo_name) / relative_path
-    target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content, encoding="utf-8")
-    return f"Written: {target}"
-
-
-@tool
-def read_repo_overview(repo_name: str) -> str:
-    """
-    Return a concise overview of a local repository (top-level files + first few entry points).
-    """
-    root = repo_path(repo_name)
-    if not root.exists():
-        return f"Repo not found: {root}"
-
-    top_files = sorted(
-        [p.name for p in root.iterdir() if p.is_file()],
-        key=lambda n: n.lower(),
-    )
-
-    entry_points = []
-    for name in _ENTRY_POINT_NAMES:
-        candidate = root / name
-        if candidate.exists():
-            entry_points.append(candidate.name)
-
-    inlined = []
-    for ep in entry_points[:_MAX_OVERVIEW_FILES]:
-        candidate = root / ep
-        try:
-            text = candidate.read_text(encoding="utf-8")
-            inlined.append(f"\n--- {ep} ---\n{text[:1500]}")
-        except Exception:
-            inlined.append(f"\n--- {ep} ---\n[unreadable]")
-
-    return (
-        f"Repo: {root}\n"
-        f"Top-level files ({len(top_files)}):\n"
-        + "\n".join(f"  {f}" for f in top_files) +
-        "\n\nEntry points found:\n"
-        + "\n".join(f"  {e}" for e in entry_points) +
-        "\n\n" + "\n".join(inlined)
-    )
-
-
-@tool
-def list_repo_files(repo_name: str, recursive: bool = True, max_results: int = 500) -> str:
-    """
-    List files in a local repository, filtering out noise files.
-
-    Args:
-        repo_name: Short name of the repo folder in the workspace, or absolute path.
-        recursive: If True (default), recurse into subdirectories.
-        max_results: Maximum number of files to return.
-
-    Returns:
-        List of relative file paths, or an error.
-    """
-    root = repo_path(repo_name)
-    if not root.exists():
-        return f"Repo not found: {root}"
-
-    files = []
-    if recursive:
-        iterator = root.rglob("**/*")
-    else:
-        iterator = root.iterdir()
-
-    for p in sorted(iterator):
-        if p.is_file():
-            rel = p.relative_to(root)
-            if should_ignore_relative_path(rel):
-                continue
-            files.append(str(rel))
-            if len(files) >= max_results:
-                files.append(f"... truncated at {max_results} files")
-                break
-
-    return "\n".join(files)
+        return f"Error: file already exists: {target}"
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        if config.DRY_RUN:
+            return f"[DRY-RUN] Would create file: {target}"
+        target.write_text(content, encoding="utf-8")
+        return f"Created: {target}"
+    except Exception as e:
+        return f"Error creating file: {e}"
