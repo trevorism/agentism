@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import subprocess
 import time
 from datetime import datetime, timedelta
@@ -19,16 +20,14 @@ _PLATFORM_HOST = urlparse(PLATFORM_BASE_URL).hostname or ""
 _SPEC_CACHE: dict[str, tuple[str, datetime]] = {}
 _SPEC_CACHE_TTL = timedelta(hours=24)
 
-# Common Micronaut / Spring OpenAPI spec paths, tried in order.
 _OPENAPI_PATHS = [
-    "/swagger/swagger.yml",
-    "/swagger/swagger.json",
-    "/swagger-ui/swagger.json",
-    "/v3/api-docs",
-    "/v2/api-docs",
-    "/openapi.json",
-    "/openapi.yaml",
+    "/help"
 ]
+
+_SPEC_LINK_PATTERN = re.compile(
+    r"[\"']([^\"']*(?:/swagger/[^\"'/]+\.(?:ya?ml|json)|/swagger-ui/swagger\.json|/v3/api-docs(?:/swagger-config)?|/v2/api-docs|/openapi\.(?:json|ya?ml))[^\"']*)[\"']",
+    re.IGNORECASE,
+)
 
 # ── Token cache ───────────────────────────────────────────────────────────────
 # Tokens are cached in-process and refreshed when they are close to expiry.
@@ -80,6 +79,40 @@ def _get_token(force_refresh: bool = False) -> str:
 
 def _auth_headers() -> dict[str, str]:
     return {"Authorization": f"Bearer {_get_token()}"}
+
+
+def _looks_like_openapi(text: str) -> bool:
+    """Best-effort check for OpenAPI/Swagger JSON or YAML content."""
+    candidate = (text or "").strip()
+    if not candidate:
+        return False
+
+    try:
+        obj = json.loads(candidate)
+        return isinstance(obj, dict) and ("openapi" in obj or "swagger" in obj)
+    except json.JSONDecodeError:
+        lowered = candidate.lower()
+        return ("openapi:" in lowered or "swagger:" in lowered) and "paths:" in lowered
+
+
+def _extract_openapi_candidates(text: str) -> list[str]:
+    """Extract likely spec/config links from HTML/JS payloads like /help or swagger-ui pages."""
+    matches = _SPEC_LINK_PATTERN.findall(text or "")
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for raw in matches:
+        link = raw.strip()
+        if not link or link in seen:
+            continue
+        seen.add(link)
+        deduped.append(link)
+    return deduped
+
+
+def _as_absolute_url(base: str, discovered: str) -> str:
+    if discovered.startswith("http://") or discovered.startswith("https://"):
+        return discovered
+    return f"{base}/{discovered.lstrip('/')}"
 
 
 # ── Tools ─────────────────────────────────────────────────────────────────────
@@ -134,7 +167,7 @@ def fetch_url(url: str, timeout: int = 30) -> str:
 
 
 @tool
-def post_platform_api(path: str, json_body: str) -> str:
+def post_platform_api(path: str, json_body: str | dict | list) -> str:
     """
     POST JSON to an endpoint on the platform.
 
@@ -142,16 +175,21 @@ def post_platform_api(path: str, json_body: str) -> str:
 
     Args:
         path:      API path relative to the platform base URL (e.g. /api/deploy).
-        json_body: JSON string to send as the request body.
+        json_body: JSON string or already-parsed JSON object/list to send as the request body.
 
     Returns:
         Response body text, or an error message.
     """
     url = f"{PLATFORM_BASE_URL.rstrip('/')}/{path.lstrip('/')}"
-    try:
-        payload = json.loads(json_body)
-    except json.JSONDecodeError as e:
-        return f"Invalid JSON body: {e}"
+    if isinstance(json_body, str):
+        try:
+            payload = json.loads(json_body)
+        except json.JSONDecodeError as e:
+            return f"Invalid JSON body: {e}"
+    elif isinstance(json_body, (dict, list)):
+        payload = json_body
+    else:
+        return "Invalid JSON body: expected a JSON string, object, or list."
     try:
         with httpx.Client(follow_redirects=True, timeout=60) as client:
             resp = client.post(url, json=payload, headers=_auth_headers())
@@ -203,11 +241,29 @@ def get_platform_api_spec(service_base_url: str = "", force_refresh: bool = Fals
                 resp = client.get(url, headers=headers)
                 if resp.status_code == 200:
                     spec = resp.text
-                    _SPEC_CACHE[base] = (spec, datetime.now())
-                    # Return a size-limited version to avoid flooding the context window
-                    if len(spec) > 8000:
-                        return spec[:8000] + f"\n\n… (truncated, full spec is {len(spec)} chars, fetched from {url})"
-                    return spec
+                    if _looks_like_openapi(spec):
+                        _SPEC_CACHE[base] = (spec, datetime.now())
+                        # Return a size-limited version to avoid flooding the context window
+                        if len(spec) > 8000:
+                            return spec[:8000] + f"\n\n… (truncated, full spec is {len(spec)} chars, fetched from {url})"
+                        return spec
+
+                    # /help or swagger HTML may embed the actual spec URL; discover and try it.
+                    for candidate in _extract_openapi_candidates(spec):
+                        spec_url = _as_absolute_url(base, candidate)
+                        try:
+                            spec_resp = client.get(spec_url, headers=headers)
+                            if spec_resp.status_code == 200 and _looks_like_openapi(spec_resp.text):
+                                resolved_spec = spec_resp.text
+                                _SPEC_CACHE[base] = (resolved_spec, datetime.now())
+                                if len(resolved_spec) > 8000:
+                                    return (
+                                        resolved_spec[:8000]
+                                        + f"\n\n… (truncated, full spec is {len(resolved_spec)} chars, fetched from {spec_url})"
+                                    )
+                                return resolved_spec
+                        except Exception:
+                            continue
             except Exception:
                 continue
 

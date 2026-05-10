@@ -6,6 +6,7 @@ Rules for designing and calling REST APIs on this platform.
 
 - API rules in this file apply when using web/API tools.
 - Method selection (CLI-first vs API fallback) is defined in `platform-cli-preference.md`.
+- For `post_platform_api`, do not handcraft `Authorization` or `Content-Type` headers; the tool applies bearer auth and JSON request encoding.
 
 ---
 

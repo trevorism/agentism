@@ -218,6 +218,7 @@ def test_real_knowledge_files_are_loaded():
     assert "Groovy" in content
     assert "API" in content or "api" in content
     assert "CLI preference" in content or "cli preference" in content
+    assert "action.trevorism.com" in content
     assert "platform-overview" in content.lower() or "Technology stack" in content
 
 
