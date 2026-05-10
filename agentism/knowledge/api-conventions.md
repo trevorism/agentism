@@ -2,6 +2,13 @@
 Rules for designing and calling REST APIs on this platform.
 ---
 
+## Usage boundary
+
+- API rules in this file apply when using web/API tools.
+- Method selection (CLI-first vs API fallback) is defined in `platform-cli-preference.md`.
+
+---
+
 ## URL design
 Prefer RESTful standards
 

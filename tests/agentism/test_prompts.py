@@ -83,10 +83,10 @@ def test_base_system_prompt_defers_domain_knowledge_to_knowledge_section():
     assert "Platform knowledge" in BASE_SYSTEM_PROMPT
 
 
-def test_base_system_prompt_platform_api_tool_chain_is_a_critical_rule():
-    # Calling platform APIs is a behavioral constraint, not just a convention.
-    assert "get_platform_api_spec" in BASE_SYSTEM_PROMPT
-    assert "get_platform_token" in BASE_SYSTEM_PROMPT
+def test_base_system_prompt_references_platform_crud_decision_rules():
+    # Keep BASE concise and delegate detailed CLI-vs-API flow to knowledge.
+    assert "platform CRUD operations" in BASE_SYSTEM_PROMPT
+    assert "prefer PowerShell CLI cmdlets" in BASE_SYSTEM_PROMPT
 
 
 def test_base_system_prompt_requires_exact_tool_names():
@@ -217,6 +217,7 @@ def test_real_knowledge_files_are_loaded():
     content = load_knowledge()
     assert "Groovy" in content
     assert "API" in content or "api" in content
+    assert "CLI preference" in content or "cli preference" in content
     assert "platform-overview" in content.lower() or "Technology stack" in content
 
 

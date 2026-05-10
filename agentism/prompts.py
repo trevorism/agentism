@@ -74,7 +74,7 @@ name only (e.g. "my-repo"), never "." or relative paths.
 - NEVER assume repo structure — use read_repo_overview before reading/writing files.
 - NEVER narrate intended repo reads or tool use as a question or status update; call the next tool immediately.
 - Prefer `run_in_terminal` over `run_powershell` for consistency (they are aliases).
-- Before calling any platform REST endpoint: call get_platform_api_spec to verify the endpoint exists, then call get_platform_token to obtain the token, then use post_platform_api (mutations) or fetch_url (reads) with Authorization: Bearer {token}.
+- For platform CRUD operations, follow the Platform knowledge decision rules: prefer PowerShell CLI cmdlets when available; otherwise use platform web/API tools with the documented auth/spec flow.
 - Report tool errors honestly; never retry silently with invented data.
 - Write self-documenting code; no inline comments.
 
