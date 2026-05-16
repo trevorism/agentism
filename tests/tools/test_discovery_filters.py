@@ -89,3 +89,26 @@ def test_search_local_code_rg_uses_glob_not_include(tmp_path: Path, monkeypatch)
     assert "src/main.py" in output
     assert "--include" not in calls["args"]
     assert "--glob" in calls["args"]
+
+
+def test_search_local_code_reranks_results_for_relevance(tmp_path: Path, monkeypatch):
+    (tmp_path / "agentism").mkdir()
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "agentism" / "prompts.py").write_text("build_system_prompt()\n", encoding="utf-8")
+    (tmp_path / "docs" / "notes.md").write_text("build_system_prompt details\n", encoding="utf-8")
+
+    monkeypatch.setattr("tools.code_search._rg_available", lambda: False)
+
+    output = search_local_code.invoke(
+        {
+            "pattern": "build_system_prompt",
+            "repo_name": str(tmp_path),
+            "file_glob": "**/*",
+            "max_results": 20,
+        }
+    )
+    normalized = output.replace("\\", "/")
+    first_line = normalized.splitlines()[0]
+
+    assert "agentism/prompts.py" in first_line
+

@@ -2,12 +2,72 @@
 from __future__ import annotations
 
 import subprocess
+import re
 from pathlib import Path
 from langchain_core.tools import tool
 from tools.discovery_filters import rg_allow_globs, rg_exclude_globs, should_ignore_relative_path
 from tools.repo_paths import repo_path
 
 _MAX_RESULTS = 50
+
+
+def _keyword_from_pattern(pattern: str) -> str:
+    """Extract a stable keyword from a regex/plain pattern for relevance scoring."""
+    tokens = re.findall(r"[A-Za-z0-9_]{3,}", pattern)
+    if not tokens:
+        return pattern.strip().lower()
+    return max(tokens, key=len).lower()
+
+
+def _match_score(line: str, keyword: str) -> int:
+    """Score `path:line:content` matches so high-signal files are ranked first."""
+    try:
+        path_part, _, content = line.split(":", 2)
+    except ValueError:
+        return 0
+
+    path_lower = path_part.lower()
+    name_lower = Path(path_part).name.lower()
+    content_lower = content.lower()
+
+    score = 0
+    if keyword:
+        if keyword in name_lower:
+            score += 60
+        if keyword in path_lower:
+            score += 35
+        if keyword in content_lower:
+            score += 20
+        if re.search(rf"\b{re.escape(keyword)}\b", content_lower):
+            score += 20
+
+    if path_lower.startswith("agentism/"):
+        score += 35
+    if path_lower.startswith("tools/"):
+        score += 30
+    if path_lower.startswith("src/"):
+        score += 25
+    if path_lower.startswith("tests/"):
+        score += 15
+
+    if name_lower in {"readme.md", "pyproject.toml", "package.json"}:
+        score += 18
+
+    # Prefer shallower files for initial exploration.
+    score += max(0, 10 - path_lower.count("/"))
+    return score
+
+
+def _rerank_output(raw_output: str, pattern: str, max_results: int) -> str:
+    """Rerank search output lines by relevance and cap to max_results."""
+    stripped = raw_output.strip()
+    if not stripped or stripped in {"No matches found", "Search timed out after 30 seconds"}:
+        return raw_output
+
+    lines = [line for line in stripped.splitlines() if line.strip()]
+    keyword = _keyword_from_pattern(pattern)
+    ranked = sorted(lines, key=lambda line: (-_match_score(line, keyword), line))
+    return "\n".join(ranked[:max_results])
 
 
 def _rg_available() -> bool:
@@ -48,7 +108,8 @@ def _rg_search(pattern: str, search_dir: Path, file_glob: str, max_results: int)
             check=True,
             timeout=30,
         )
-        return result.stdout or "No matches found"
+        output = result.stdout or "No matches found"
+        return _rerank_output(output, pattern, max_results)
     except subprocess.TimeoutExpired:
         return "Search timed out after 30 seconds"
     except subprocess.CalledProcessError as e:
@@ -82,12 +143,15 @@ def _python_search(pattern: str, search_dir: Path, file_glob: str, max_results: 
             for line_no, line in enumerate(content.splitlines(), 1):
                 if regex.search(line):
                     matches.append(f"{rel}:{line_no}:{line.strip()}")
-                    if len(matches) >= max_results:
-                        return "\n".join(matches)
+                    if len(matches) >= max_results * 2:
+                        ranked = _rerank_output("\n".join(matches), pattern, max_results)
+                        return ranked
         except Exception:
             continue
 
-    return "\n".join(matches) if matches else "No matches found"
+    if not matches:
+        return "No matches found"
+    return _rerank_output("\n".join(matches), pattern, max_results)
 
 
 @tool

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from tools.file_tool import create_file, list_repo_files, read_file_in_repo, write_file_in_repo
+from tools.file_tool import create_file, list_repo_files, read_file_in_repo, write_file_in_repo, read_repo_overview
 
 
 def test_create_file_creates_new_file(tmp_path: Path):
@@ -99,5 +99,19 @@ def test_list_repo_files_does_not_mark_truncated_when_exact_limit(tmp_path: Path
     output = list_repo_files.func(str(repo_dir), max_results=2)
 
     assert "truncated at" not in output
+
+
+def test_read_repo_overview_includes_suggested_next_reads(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    (repo_dir / "README.md").write_text("# Demo\n", encoding="utf-8")
+    (repo_dir / "agentism").mkdir()
+    (repo_dir / "agentism" / "app.py").write_text("print('app')\n", encoding="utf-8")
+
+    output = read_repo_overview.func(str(repo_dir))
+
+    assert "Suggested next reads:" in output
+    assert "README.md" in output
+    assert "agentism/app.py" in output.replace("\\", "/")
 
 

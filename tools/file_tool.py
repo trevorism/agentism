@@ -8,6 +8,42 @@ from langchain_core.tools import tool
 from tools.discovery_filters import should_ignore_relative_path
 from tools.repo_paths import repo_path
 
+_PRIORITY_FILE_NAMES = {
+    "README.md",
+    "pyproject.toml",
+    "package.json",
+    "build.gradle",
+    "Dockerfile",
+    "agent.py",
+    "index.html"
+}
+
+
+def _overview_priority_score(relative_path: Path) -> int:
+    """Return a heuristic score for files that are usually high-signal for repo understanding."""
+    rel = str(relative_path).replace("\\", "/")
+    name = relative_path.name
+    score = 0
+
+    if name in _PRIORITY_FILE_NAMES:
+        score += 120
+    if rel.startswith("src/"):
+        score += 40
+    if rel.startswith("tools/"):
+        score += 35
+    if rel.startswith("tests/"):
+        score += 30
+
+    if "/__init__.py" in rel:
+        score += 20
+
+    if relative_path.suffix in {".py", ".md", ".toml", ".yml", ".yaml", ".json", ".gradle"}:
+        score += 10
+
+    depth = len(relative_path.parts)
+    score += max(0, 20 - depth)
+    return score
+
 
 def _list_files(
     repo_root: Path,
@@ -68,6 +104,15 @@ def read_repo_overview(repo_name: str) -> str:
     if entry_points:
         output += "\n\nEntry points:\n"
         output += "\n".join(entry_points)
+
+    files, is_truncated = _list_files(repo_root, recursive=True, max_results=400)
+    if files:
+        ranked = sorted(files, key=lambda path: (-_overview_priority_score(path), str(path)))
+        suggested = ranked[:12]
+        output += "\n\nSuggested next reads:\n"
+        output += "\n".join(f"  - {p}" for p in suggested)
+        if is_truncated:
+            output += "\n  - ... (scored from first 400 filtered files)"
 
     return output
 
