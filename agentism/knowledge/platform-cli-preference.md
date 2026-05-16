@@ -33,10 +33,9 @@ Add-Threshold -name "<name>" -description "<desc>" -operator ">=" -value 4 -toke
 When falling back to platform API tools:
 
 1. Resolve the correct service base URL first (from repo docs/config; do not default to `https://trevorism.com`).
-2. For threshold operations, default service base URL is `https://threshold.action.trevorism.com` unless repo/config says otherwise.
-3. Prefer `<service-base>/help` as the first docs discovery URL, then call `get_platform_api_spec(service_base_url=...)` to verify endpoint and request shape.
-4. Call `get_platform_token`.
-5. Call `post_platform_api` (mutations) or `fetch_url` (reads) with `Authorization: Bearer {token}`.
-6. Use exact parameter names and body schema from tool metadata and API spec.
-7. For `post_platform_api`, provide only `path` and `json_body`; auth headers and JSON request encoding are handled by the tool. `json_body` may be a JSON string or JSON object/list.
+2. Prefer `<service-base>/help` as the first docs discovery URL, then call `get_platform_api_spec(service_base_url=...)` to verify endpoint and request shape.
+3. Call `get_platform_token`.
+4. Call `post_platform_api` (mutations) or `fetch_url` (reads) with `Authorization: Bearer {token}`.
+5. Use exact parameter names and body schema from tool metadata and API spec.
+6. For `post_platform_api`, provide only `path` and `json_body`; auth headers and JSON request encoding are handled by the tool. `json_body` may be a JSON string or JSON object/list.
 

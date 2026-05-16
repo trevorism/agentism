@@ -16,7 +16,7 @@ Rules for writing and running tests on this platform.
 
 ## Vitest conventions
 
-- Test files are co-located next to the component they test: `MyComponent.vue` → `MyComponent.spec.js`.
+- Test files are located in `src/app/test` and mirror the source structure of `src/app`.
 - Use `describe` / `it` blocks; never naked `test()` at file scope.
 - Mock external API calls with `vi.mock`; never let tests hit real network endpoints.
 - Assert on rendered output, not on implementation details (avoid asserting internal state).

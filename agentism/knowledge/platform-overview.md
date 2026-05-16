@@ -32,8 +32,6 @@ Use these rules before any platform web/API call:
 
 1. Do not guess a host from `trevorism.com` root.
 2. Resolve the deployed base URL from repo docs/config first (`README.md`, `ContextRoot.feature`, deployment workflow files).
-3. If unresolved but the operation is an action service, prefer the `*.action.trevorism.com` host pattern.
-4. For threshold operations, use `https://threshold.action.trevorism.com` as the service base URL unless repo/config explicitly says otherwise.
-5. Prefer `<service-base>/help` for docs discovery; it reliably redirects or links to Swagger/OpenAPI resources.
-6. Call `get_platform_api_spec` against the resolved base URL before endpoint calls.
+3. Prefer `<service-base>/help` for docs discovery; it reliably redirects or links to Swagger/OpenAPI resources.
+4. Call `get_platform_api_spec` against the resolved base URL before endpoint calls.
 

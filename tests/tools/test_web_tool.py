@@ -54,13 +54,13 @@ def test_post_platform_api_sets_bearer_header_and_uses_json_payload(monkeypatch)
     )
 
     result = web_tool.post_platform_api.func(
-        "/threshold",
-        '{"name":"athresh","description":"a threshold","operator":">=","value":4}',
+        "/policy",
+        '{"name":"critical-policy","description":"a policy rule","operator":">=","value":4}',
     )
 
     assert result == "created"
     assert calls["headers"]["Authorization"] == "Bearer abc123"
-    assert calls["json"]["name"] == "athresh"
+    assert calls["json"]["name"] == "critical-policy"
     assert calls["json"]["operator"] == ">="
     assert calls["json"]["value"] == 4
 
@@ -76,24 +76,24 @@ def test_post_platform_api_accepts_dict_json_body(monkeypatch):
     )
 
     result = web_tool.post_platform_api.func(
-        "/threshold",
-        {"name": "critical-thresh", "description": "critical lower bound", "operator": "<=", "value": 2},
+        "/policy",
+        {"name": "critical-policy", "description": "critical lower bound", "operator": "<=", "value": 2},
     )
 
     assert result == "created"
     assert calls["headers"]["Authorization"] == "Bearer abc123"
-    assert calls["json"]["name"] == "critical-thresh"
+    assert calls["json"]["name"] == "critical-policy"
     assert calls["json"]["value"] == 2
 
 
 def test_post_platform_api_rejects_non_json_body_type():
-    result = web_tool.post_platform_api.func("/threshold", 123)
+    result = web_tool.post_platform_api.func("/policy", 123)
 
     assert "Invalid JSON body" in result
 
 
 def test_get_platform_api_spec_discovers_spec_from_help_page(monkeypatch):
-    base = "https://threshold.action.trevorism.com"
+    base = "https://service.example.test"
     calls = []
     help_html = '<html><body><a href="/v3/api-docs">OpenAPI</a></body></html>'
     openapi_json = '{"openapi":"3.0.1","paths":{}}'
@@ -119,7 +119,7 @@ def test_get_platform_api_spec_discovers_spec_from_help_page(monkeypatch):
 
 
 def test_get_platform_api_spec_tries_help_before_other_paths(monkeypatch):
-    base = "https://threshold.action.trevorism.com"
+    base = "https://service.example.test"
     calls = []
     responses = {
         f"{base}/help": _FakeResponse("<html></html>", 404),
@@ -148,14 +148,14 @@ def test_get_platform_api_spec_tries_help_before_other_paths(monkeypatch):
 
 
 def test_get_platform_api_spec_discovers_versioned_swagger_yaml_from_help(monkeypatch):
-    base = "https://threshold.action.trevorism.com"
+    base = "https://service.example.test"
     calls = []
-    help_html = '<html><body><a href="/swagger/threshold-action-1.0.yml">Swagger YAML</a></body></html>'
+    help_html = '<html><body><a href="/swagger/service-api-1.0.yml">Swagger YAML</a></body></html>'
     swagger_yaml = "openapi: 3.0.1\npaths: {}\n"
 
     responses = {
         f"{base}/help": _FakeResponse(help_html, 200),
-        f"{base}/swagger/threshold-action-1.0.yml": _FakeResponse(swagger_yaml, 200),
+        f"{base}/swagger/service-api-1.0.yml": _FakeResponse(swagger_yaml, 200),
     }
 
     monkeypatch.setattr(web_tool, "_SPEC_CACHE", {})
@@ -170,6 +170,6 @@ def test_get_platform_api_spec_discovers_versioned_swagger_yaml_from_help(monkey
 
     assert "openapi: 3.0.1" in result
     assert calls[0] == f"{base}/help"
-    assert f"{base}/swagger/threshold-action-1.0.yml" in calls
+    assert f"{base}/swagger/service-api-1.0.yml" in calls
 
 

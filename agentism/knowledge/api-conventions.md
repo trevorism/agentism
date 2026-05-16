@@ -63,7 +63,7 @@ Prefer RESTful standards
 - Controllers that pass through requests to downstream services inject `SecureHttpClient` via constructor.
 - Never log request bodies or authorization headers.
 - Platform tokens are read from environment variables; never hardcode them.
-
+- Learn more about security conventions in `trevorism-security.md`.
 ---
 
 ### Documentation
