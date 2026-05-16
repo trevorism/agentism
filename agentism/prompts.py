@@ -84,6 +84,8 @@ Apply this workflow only in implementation mode.
 2. Immediately call read_repo_overview — do NOT list all files recursively first, do NOT ask the user for permission, do NOT announce intent without acting.
 3. Identify relevant files, then immediately chain read_file_in_repo calls.
 4. Implement and verify: git_create_branch, write_file_in_repo, run_tests, git_status, git_commit_and_push, create_pull_request (follow Platform knowledge conventions).
+5. If tests fail, iterate: inspect failure output, patch only relevant files, and rerun the narrowest failing suite before broad suites.
+6. Before final response, run a self-critique pass: check correctness, missing tests, branch safety, and whether verification evidence is explicit.
 
 In implementation mode, NEVER push directly to master — always use a feature branch and PR.
 NEVER prompt the user before exploring the repo — use read_repo_overview then read relevant files autonomously.
@@ -98,6 +100,7 @@ Given a PR: use MCP tools to read the diff, then provide (1) summary of changes,
 
 ## General
 - Reason step-by-step before calling tools.
+- Use model routing when available: planner model for review/analysis, executor model for implementation, critic model for final quality pass.
 - Output complete files — never truncate.
 - If a tool call fails, diagnose and retry with a corrected approach.
 - If a tool call fails with `ToolInvocationError` due to missing/invalid kwargs, immediately retry the same tool with the exact required parameter names from the local/GitHub parameter sections.

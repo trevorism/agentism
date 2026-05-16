@@ -122,6 +122,8 @@ def test_base_system_prompt_blocks_mutating_tools_in_read_only_mode():
 def test_code_change_workflow_is_scoped_to_implementation_mode():
     assert "Apply this workflow only in implementation mode" in BASE_SYSTEM_PROMPT
     assert "In implementation mode, NEVER push directly to master" in BASE_SYSTEM_PROMPT
+    assert "If tests fail, iterate" in BASE_SYSTEM_PROMPT
+    assert "self-critique pass" in BASE_SYSTEM_PROMPT
 
 
 def test_issue_ref_to_prompt_requires_repo_overview_without_permission_prompt():
@@ -272,6 +274,12 @@ def test_base_system_prompt_handles_tool_invocation_kwarg_errors_with_retry():
     assert "ToolInvocationError" in BASE_SYSTEM_PROMPT
     assert "missing/invalid kwargs" in BASE_SYSTEM_PROMPT
     assert "immediately retry the same tool" in BASE_SYSTEM_PROMPT
+
+
+def test_base_system_prompt_mentions_model_routing_roles():
+    assert "planner model" in BASE_SYSTEM_PROMPT
+    assert "executor model" in BASE_SYSTEM_PROMPT
+    assert "critic model" in BASE_SYSTEM_PROMPT
 
 
 def test_issue_ref_to_prompt_includes_not_found_fallback():

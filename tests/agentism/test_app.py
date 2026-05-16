@@ -79,3 +79,59 @@ def test_ollama_client_kwargs_can_omit_top_p(monkeypatch):
     assert "model_kwargs" not in kwargs
 
 
+def test_routing_models_uses_env_overrides(monkeypatch):
+    monkeypatch.setenv("OLLAMA_MODEL_EXECUTOR", "exec-model")
+    monkeypatch.setenv("OLLAMA_MODEL_PLANNER", "plan-model")
+    monkeypatch.setenv("OLLAMA_MODEL_CRITIC", "critic-model")
+
+    models = app._routing_models("base-model")
+
+    assert models["executor"] == "exec-model"
+    assert models["planner"] == "plan-model"
+    assert models["critic"] == "critic-model"
+
+
+def test_select_turn_model_prefers_planner_for_review_prompts():
+    models = {
+        "default": "base",
+        "executor": "exec",
+        "planner": "plan",
+        "critic": "crit",
+    }
+
+    selected = app._select_turn_model("Please review this PR and summarize risks", "base", models)
+
+    assert selected == "plan"
+
+
+def test_select_turn_model_prefers_executor_for_implementation_prompts():
+    models = {
+        "default": "base",
+        "executor": "exec",
+        "planner": "plan",
+        "critic": "crit",
+    }
+
+    selected = app._select_turn_model("Implement a fix for this bug", "base", models)
+
+    assert selected == "exec"
+
+
+def test_should_run_critic_pass_for_implementation_without_verification_text():
+    should_run = app._should_run_critic_pass(
+        "Implement a fix for issue #7",
+        "I changed the code in src/main.py and it should work now.",
+    )
+
+    assert should_run is True
+
+
+def test_should_not_run_critic_pass_when_verification_is_present():
+    should_run = app._should_run_critic_pass(
+        "Implement a fix for issue #7",
+        "Updated src/main.py and ran pytest with all tests passed.",
+    )
+
+    assert should_run is False
+
+

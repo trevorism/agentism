@@ -1,10 +1,13 @@
 """Application orchestration for the Agentism REPL."""
 import asyncio
 import inspect
+import os
+import re
 import time
 import warnings
 
 from langchain_ollama import ChatOllama
+from langchain_core.messages import HumanMessage
 from langgraph.prebuilt import ToolNode, create_react_agent
 from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -22,6 +25,87 @@ from tools import LOCAL_TOOLS
 
 console = Console()
 _DANGLING_TOOL_CALL = "do not have a corresponding ToolMessage"
+_IMPLEMENTATION_HINTS = (
+    "implement", "fix", "refactor", "add", "create", "update", "write code", "patch", "bug",
+)
+_REVIEW_HINTS = (
+    "review", "analyze", "analysis", "summary", "audit", "pr", "pull request",
+)
+_VERIFICATION_SIGNALS = (
+    "run_tests", "pytest", "test result", "passed", "failed", "verification", "validated",
+)
+
+
+def _routing_models(default_model: str) -> dict[str, str]:
+    """Resolve optional per-phase model routing from environment variables."""
+    executor = os.getenv("OLLAMA_MODEL_EXECUTOR", "").strip() or default_model
+    planner = os.getenv("OLLAMA_MODEL_PLANNER", "").strip() or default_model
+    critic = os.getenv("OLLAMA_MODEL_CRITIC", "").strip() or executor
+    return {
+        "default": default_model,
+        "executor": executor,
+        "planner": planner,
+        "critic": critic,
+    }
+
+
+def _is_implementation_request(user_input: str) -> bool:
+    text = (user_input or "").lower()
+    return any(token in text for token in _IMPLEMENTATION_HINTS)
+
+
+def _is_review_or_analysis_request(user_input: str) -> bool:
+    text = (user_input or "").lower()
+    return any(token in text for token in _REVIEW_HINTS)
+
+
+def _select_turn_model(user_input: str, state_default_model: str, models: dict[str, str]) -> str:
+    """Choose planner/executor/default model for the current prompt."""
+    if _is_review_or_analysis_request(user_input):
+        return models.get("planner", state_default_model)
+    if _is_implementation_request(user_input):
+        return models.get("executor", state_default_model)
+    return state_default_model
+
+
+def _missing_verification_evidence(response: str) -> bool:
+    if not response.strip():
+        return True
+    lowered = response.lower()
+    return not any(signal in lowered for signal in _VERIFICATION_SIGNALS)
+
+
+def _should_run_critic_pass(user_input: str, response: str) -> bool:
+    if not response.strip():
+        return False
+    return _is_review_or_analysis_request(user_input) or (
+        _is_implementation_request(user_input) and _missing_verification_evidence(response)
+    )
+
+
+async def _run_critic_pass(model_name: str, user_input: str, draft_response: str) -> str:
+    """Run a lightweight local critique pass and return an improved final response."""
+    llm = ChatOllama(**_ollama_client_kwargs(model_name))
+    prompt = (
+        "You are a strict reviewer for agent output. Improve the draft response for correctness, clarity, "
+        "and actionable verification steps. Preserve factual claims and do not invent tool outputs. "
+        "If verification evidence is missing for implementation tasks, add explicit verification steps. "
+        "Return only the final revised response markdown.\n\n"
+        f"User request:\n{user_input}\n\n"
+        f"Draft response:\n{draft_response}"
+    )
+    try:
+        revised = await llm.ainvoke([HumanMessage(content=prompt)])
+        content = getattr(revised, "content", "")
+        text = str(content).strip()
+        if not text:
+            return draft_response
+        # Strip optional fenced wrappers added by the critic model.
+        text = re.sub(r"^```(?:markdown)?\s*", "", text)
+        text = re.sub(r"\s*```$", "", text)
+        return text.strip() or draft_response
+    finally:
+        await _safe_close_async(llm)
 
 
 def _ollama_client_kwargs(model_name: str) -> dict:
@@ -111,6 +195,7 @@ async def main_async(
         console.print("[yellow]⚠[/yellow]  GITHUB_TOKEN not set - MCP GitHub tools disabled.")
 
     try:
+        models = _routing_models(config.OLLAMA_MODEL)
         all_tools = LOCAL_TOOLS + mcp_tools
         for t in all_tools:
             t.handle_tool_error = True
@@ -131,8 +216,8 @@ async def main_async(
 
             state = AgentState(
                 thread_id=initial_thread,
-                model=config.OLLAMA_MODEL,
-                agent=build_agent(config.OLLAMA_MODEL),
+                model=models["executor"],
+                agent=build_agent(models["executor"]),
             )
 
             commands = ReplCommands(state=state, all_tools=all_tools, build_agent_fn=build_agent)
@@ -141,6 +226,8 @@ async def main_async(
 
             async def run_turn(user_input: str) -> str:
                 start = time.monotonic()
+                chosen_model = _select_turn_model(user_input, state.model, models)
+                active_agent = state.agent if chosen_model == state.model else build_agent(chosen_model)
 
                 async def heartbeat():
                     while True:
@@ -153,7 +240,7 @@ async def main_async(
                     hb = asyncio.create_task(heartbeat())
                     try:
                         response, tokens = await run_agent_turn(
-                            state.agent,
+                            active_agent,
                             user_input,
                             state.thread_id,
                             debug=debug,
@@ -170,7 +257,7 @@ async def main_async(
                             state.session_history.clear()
                             try:
                                 response, tokens = await run_agent_turn(
-                                    state.agent,
+                                    active_agent,
                                     user_input,
                                     state.thread_id,
                                     debug=debug,
@@ -196,6 +283,12 @@ async def main_async(
                         elapsed = time.monotonic() - start
                         if elapsed > 5:
                             console.print(f"  [dim]✓ completed in {elapsed:.1f}s[/dim]")
+                    if _should_run_critic_pass(user_input, response):
+                        critic_model = models.get("critic", state.model)
+                        try:
+                            response = await _run_critic_pass(critic_model, user_input, response)
+                        except Exception as critic_err:
+                            console.print(f"[yellow]⚠ Critic pass skipped:[/yellow] {critic_err}")
                 except Exception:
                     raise
 
