@@ -58,6 +58,9 @@ def test_is_github_tool_name_uses_curated_hints_and_prefix():
 
 def test_curated_github_hints_are_available_for_prompt_builder():
     assert GITHUB_PARAMETER_HINTS["get_issue"] == ["owner", "repo", "issue_number"]
+    assert GITHUB_PARAMETER_HINTS["create_branch"] == ["owner", "repo", "branch", "from_branch"]
+    assert GITHUB_PARAMETER_HINTS["create_pull_request"] == ["owner", "repo", "title", "head", "base"]
+    assert GITHUB_PARAMETER_HINTS["merge_pull_request"] == ["owner", "repo", "pullNumber"]
 
 
 def test_iter_tool_metadata_extracts_required_and_optional_params_from_signature():

@@ -28,6 +28,16 @@ def test_create_file_rejects_existing_file(tmp_path: Path):
     assert existing.read_text(encoding="utf-8") == "old\n"
 
 
+def test_create_file_accepts_path_alias(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+
+    result = create_file.func(str(repo_dir), path="src/alias.groovy", content="class Alias {}\n")
+
+    assert "Created:" in result
+    assert (repo_dir / "src" / "alias.groovy").exists()
+
+
 
 def test_read_file_in_repo_returns_contents(tmp_path: Path):
     repo_dir = tmp_path / "repo"
@@ -52,6 +62,16 @@ def test_write_file_in_repo_overwrites_contents(tmp_path: Path):
 
     assert "Written:" in result
     assert target.read_text(encoding="utf-8") == '{"new": true}'
+
+
+def test_write_file_in_repo_accepts_path_alias(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+
+    result = write_file_in_repo.func(str(repo_dir), path="src/alias.txt", content="hello\n")
+
+    assert "Written:" in result
+    assert (repo_dir / "src" / "alias.txt").read_text(encoding="utf-8") == "hello\n"
 
 
 def test_list_repo_files_recurses_by_default(tmp_path: Path):
@@ -113,5 +133,17 @@ def test_read_repo_overview_includes_suggested_next_reads(tmp_path: Path):
     assert "Suggested next reads:" in output
     assert "README.md" in output
     assert "agentism/app.py" in output.replace("\\", "/")
+
+
+def test_read_file_in_repo_accepts_path_alias(tmp_path: Path):
+    repo_dir = tmp_path / "repo"
+    repo_dir.mkdir()
+    file_path = repo_dir / "src" / "alias.py"
+    file_path.parent.mkdir(parents=True)
+    file_path.write_text("print('alias')\n", encoding="utf-8")
+
+    result = read_file_in_repo.func(str(repo_dir), path="src/alias.py")
+
+    assert result == "print('alias')\n"
 
 

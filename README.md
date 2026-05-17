@@ -54,11 +54,29 @@ uv run pytest -o addopts='' -m integration
 | `OLLAMA_BASE_URL` | `http://localhost:11434` | Ollama server address |
 | `OLLAMA_TEMPERATURE` | `0.7` | Sampling temperature (higher default for more exploratory reasoning) |
 | `OLLAMA_TOP_P` | `0.95` | Nucleus sampling cutoff |
+| `OLLAMA_EMBED_MODEL` | `nomic-embed-text` | Embedding model used for semantic memory retrieval |
 | `GITHUB_TOKEN` | *(required)* | PAT for GitHub API + MCP |
 | `GITHUB_DEFAULT_OWNER` | *(optional)* | Default org/user for GitHub operations |
 | `PLATFORM_BASE_URL` | `http://localhost:8080` | Your Groovy backend base URL |
 | `MEMORY_DB` | `memory.db` | SQLite file for persistent conversation memory |
+| `MEMORY_RETRIEVAL_LIMIT` | `8` | Max memory snippets retrieved per turn |
+| `MEMORY_CONTEXT_CHAR_BUDGET` | `2400` | Max characters injected from memory per turn |
+| `MEMORY_CHUNK_CHARS` | `600` | Chunk size for embedded memory content |
+| `MEMORY_CHUNK_OVERLAP` | `120` | Overlap between adjacent memory chunks |
 | `WORKSPACE_DIR` | `./repos` | Where repos are cloned to |
+
+## Semantic memory (thread-scoped)
+
+- Conversation turns are written to SQLite memory tables and embedded with `OLLAMA_EMBED_MODEL`.
+- Retrieval is strict to the active `thread_id`; cross-thread recall is intentionally disabled.
+- `!clear` removes both checkpoint rows and semantic memory for the current thread.
+- If sqlite-vec is unavailable at runtime, retrieval falls back to in-process cosine scoring over stored embeddings.
+
+Quick demo:
+
+```powershell
+uv run python -m agentism.memory_demo --thread demo --query "What changed for login?"
+```
 
 ## Extending
 

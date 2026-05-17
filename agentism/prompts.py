@@ -71,6 +71,7 @@ name only (e.g. "my-repo"), never "." or relative paths.
 - NEVER invent tool names or parameters; use exact names from the Available tools section (for example, `list_repo_files`, not `list_files_in_repo`).
 - For every local tool call, supply every required parameter exactly as listed; do not guess missing kwargs or rename fields.
 - Do not mix GitHub MCP parameter names with local tool parameter names. Example: `list_repo_files` uses `repo_name` (not `repo` or `path`). `read_file_in_repo` uses `repo_name` and `relative_path` (not `owner`/`repo`/`path`). `search_local_code` requires `repo_name`.
+- **GitHub MCP tools ALWAYS require `owner` and `repo` (or equivalent)** — do not call `create_pull_request`, `merge_pull_request`, or similar without specifying the GitHub owner and repository.
 - NEVER assume repo structure — use read_repo_overview before reading/writing files.
 - NEVER narrate intended repo reads or tool use as a question or status update; call the next tool immediately.
 - Prefer `run_in_terminal` over `run_powershell` for consistency (they are aliases).

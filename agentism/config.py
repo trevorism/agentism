@@ -42,6 +42,17 @@ def _optional_float(name: str, default: float | None = None) -> float | None:
         raise
 
 
+def _optional_int(name: str, default: int) -> int:
+    """Return an integer env var, or the default when missing/invalid."""
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
 def _path(name: str, default: str) -> Path:
     """Return a Path from the env var, or the default if not set."""
     value = os.getenv(name, default)
@@ -72,6 +83,11 @@ PS_MODULE_PATH: str = _required("PS_MODULE_PATH")
 DEV_DIR: Path = _path("DEV_DIR", "")
 
 MEMORY_DB: str = _optional("MEMORY_DB", "memory.db")
+OLLAMA_EMBED_MODEL: str = _optional("OLLAMA_EMBED_MODEL", "nomic-embed-text")
+MEMORY_RETRIEVAL_LIMIT: int = _optional_int("MEMORY_RETRIEVAL_LIMIT", 8)
+MEMORY_CONTEXT_CHAR_BUDGET: int = _optional_int("MEMORY_CONTEXT_CHAR_BUDGET", 2400)
+MEMORY_CHUNK_CHARS: int = _optional_int("MEMORY_CHUNK_CHARS", 600)
+MEMORY_CHUNK_OVERLAP: int = _optional_int("MEMORY_CHUNK_OVERLAP", 120)
 WORKSPACE_DIR: Path = _path("WORKSPACE_DIR", "./repos")
 WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 

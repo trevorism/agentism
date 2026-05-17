@@ -18,6 +18,7 @@ from rich.prompt import Prompt
 
 from agentism import config
 from agentism.commands import ReplCommands, clear_thread
+from agentism.memory_store import SqliteVecMemoryStore, format_memory_block
 from agentism.prompts import build_system_prompt, issue_ref_to_prompt, pr_ref_to_prompt
 from agentism.state import AgentState, TokenUsage
 from agentism.streaming import probe_tool_calling, run_agent_turn
@@ -125,12 +126,24 @@ def print_welcome() -> None:
         f"[bold cyan]Agentism[/bold cyan]  🤖\n"
         f"Model : [green]{config.OLLAMA_MODEL}[/green] @ {config.OLLAMA_BASE_URL}\n"
         f"LLM opts: temperature={config.OLLAMA_TEMPERATURE}, top_p={config.OLLAMA_TOP_P}\n"
-        f"Memory: [green]{config.MEMORY_DB}[/green] (SQLite)\n"
+        f"Memory: [green]{config.MEMORY_DB}[/green] (SQLite + embeddings: {config.OLLAMA_EMBED_MODEL})\n"
         f"GitHub: MCP  |  Workspace: [green]{config.WORKSPACE_DIR}[/green]\n\n"
         "Type your task and press Enter. Type [bold]!help[/bold] for commands.",
         title="Platform Dev Agent",
         border_style="cyan",
     ))
+
+
+def _augment_user_input_with_memory(user_input: str, memory_block: str) -> str:
+    """Attach retrieved thread memory to the turn while keeping the user ask explicit."""
+    if not memory_block:
+        return user_input
+    return (
+        "Thread memory context (strictly from this thread):\n"
+        f"{memory_block}\n\n"
+        "Current user request:\n"
+        f"{user_input}"
+    )
 
 
 async def _safe_close_async(resource) -> None:
@@ -200,6 +213,19 @@ async def main_async(
         for t in all_tools:
             t.handle_tool_error = True
 
+        memory_store = SqliteVecMemoryStore(
+            config.MEMORY_DB,
+            embed_model=config.OLLAMA_EMBED_MODEL,
+            chunk_chars=config.MEMORY_CHUNK_CHARS,
+            chunk_overlap=config.MEMORY_CHUNK_OVERLAP,
+            prefer_vec=True,
+        )
+        try:
+            await memory_store.initialize()
+            console.print(f"[green]✓[/green] Semantic memory backend: {memory_store.backend_label()}.")
+        except Exception as mem_init_err:
+            console.print(f"[yellow]⚠[/yellow] Semantic memory unavailable: {mem_init_err}")
+
         async with AsyncSqliteSaver.from_conn_string(config.MEMORY_DB) as checkpointer:
 
             def build_agent(model_name: str):
@@ -228,6 +254,26 @@ async def main_async(
                 start = time.monotonic()
                 chosen_model = _select_turn_model(user_input, state.model, models)
                 active_agent = state.agent if chosen_model == state.model else build_agent(chosen_model)
+                memory_block = ""
+                turn_input = user_input
+
+                try:
+                    snippets = await memory_store.retrieve_context(
+                        state.thread_id,
+                        user_input,
+                        max_items=config.MEMORY_RETRIEVAL_LIMIT,
+                        max_chars=config.MEMORY_CONTEXT_CHAR_BUDGET,
+                    )
+                    memory_block = format_memory_block(snippets)
+                    turn_input = _augment_user_input_with_memory(user_input, memory_block)
+                except RuntimeError as mem_read_err:
+                    err_msg = str(mem_read_err)
+                    if "not found" in err_msg.lower() or "cannot connect" in err_msg.lower():
+                        console.print(
+                            f"[yellow]⚠[/yellow] Semantic memory unavailable. Run [bold]!health[/bold] to diagnose."
+                        )
+                    else:
+                        console.print(f"[yellow]⚠[/yellow] Memory retrieval skipped: {err_msg[:80]}")
 
                 async def heartbeat():
                     while True:
@@ -241,7 +287,7 @@ async def main_async(
                     try:
                         response, tokens = await run_agent_turn(
                             active_agent,
-                            user_input,
+                            turn_input,
                             state.thread_id,
                             debug=debug,
                             chunk_timeout=chunk_timeout,
@@ -258,7 +304,7 @@ async def main_async(
                             try:
                                 response, tokens = await run_agent_turn(
                                     active_agent,
-                                    user_input,
+                                    turn_input,
                                     state.thread_id,
                                     debug=debug,
                                     chunk_timeout=chunk_timeout,
@@ -295,6 +341,14 @@ async def main_async(
                 state.session_history.append((user_input, response))
                 state.session_tokens.add(tokens)
                 state.last_user_input = user_input
+                try:
+                    await memory_store.add_turn(state.thread_id, user_input, response)
+                except Exception as mem_write_err:
+                    err_msg = str(mem_write_err)
+                    if "404" in err_msg or "not found" in err_msg.lower():
+                        pass  # Silently skip; already warned at retrieval time
+                    else:
+                        console.print(f"[yellow]⚠[/yellow] Memory write skipped: {mem_write_err}")
                 console.print(Panel(
                     Markdown(response) if response else "[dim](no response)[/dim]",
                     title=f"[bold green]Agent[/bold green] [dim](thread: {state.thread_id})[/dim]",

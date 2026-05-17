@@ -135,3 +135,20 @@ def test_should_not_run_critic_pass_when_verification_is_present():
     assert should_run is False
 
 
+def test_augment_user_input_with_memory_includes_context_and_request():
+    result = app._augment_user_input_with_memory(
+        "Implement the fix",
+        "- [summary] We already reproduced the issue",
+    )
+
+    assert "Thread memory context" in result
+    assert "Current user request" in result
+    assert "Implement the fix" in result
+
+
+def test_augment_user_input_with_memory_returns_original_when_empty():
+    result = app._augment_user_input_with_memory("Implement the fix", "")
+
+    assert result == "Implement the fix"
+
+

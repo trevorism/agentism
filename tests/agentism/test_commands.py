@@ -183,3 +183,38 @@ async def test_cmd_health_uses_active_state_model(monkeypatch):
     assert isinstance(result, Panel)
     mock_run.assert_awaited_once_with(active_model="qwen3.6")
 
+
+@pytest.mark.asyncio
+async def test_clear_thread_also_clears_semantic_memory(monkeypatch):
+    class _Cursor:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        async def fetchall(self):
+            return []
+
+    class _Db:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, exc_type, exc, tb):
+            return False
+
+        def execute(self, *_args, **_kwargs):
+            return _Cursor()
+
+        async def commit(self):
+            return None
+
+    clear_memory = AsyncMock()
+    monkeypatch.setattr(commands.aiosqlite, "connect", lambda *_args, **_kwargs: _Db())
+    monkeypatch.setattr(commands, "clear_thread_memory", clear_memory)
+
+    await commands.clear_thread("thread-a")
+
+    clear_memory.assert_awaited_once_with("thread-a", db_path=commands.config.MEMORY_DB)
+
+

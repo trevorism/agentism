@@ -19,6 +19,12 @@ _PRIORITY_FILE_NAMES = {
 }
 
 
+def _resolve_relative_path(relative_path: str, path: str = "") -> str:
+    """Return a usable repo-relative path, supporting `path` as an alias."""
+    resolved = (relative_path or "").strip() or (path or "").strip()
+    return resolved
+
+
 def _overview_priority_score(relative_path: Path) -> int:
     """Return a heuristic score for files that are usually high-signal for repo understanding."""
     rel = str(relative_path).replace("\\", "/")
@@ -146,7 +152,7 @@ def list_repo_files(
 
 
 @tool
-def read_file_in_repo(repo_name: str, relative_path: str) -> str:
+def read_file_in_repo(repo_name: str, relative_path: str = "", path: str = "") -> str:
     """
     Read the contents of a file in a local repository.
 
@@ -158,7 +164,10 @@ def read_file_in_repo(repo_name: str, relative_path: str) -> str:
         File contents as text, or an error message.
     """
     repo_root = repo_path(repo_name)
-    target = repo_root / relative_path
+    resolved_path = _resolve_relative_path(relative_path, path)
+    if not resolved_path:
+        return "Error: missing file path. Provide `relative_path` (preferred) or `path`."
+    target = repo_root / resolved_path
     if not target.exists():
         return f"File not found: {target}"
     if not target.is_file():
@@ -170,7 +179,7 @@ def read_file_in_repo(repo_name: str, relative_path: str) -> str:
 
 
 @tool
-def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
+def write_file_in_repo(repo_name: str, relative_path: str = "", content: str = "", path: str = "") -> str:
     """
     Write content to a file in a local repository.
 
@@ -185,7 +194,12 @@ def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
         Confirmation message, or an error message.
     """
     repo_root = repo_path(repo_name)
-    target = repo_root / relative_path
+    if not content:
+        return "Error: missing file content."
+    resolved_path = _resolve_relative_path(relative_path, path)
+    if not resolved_path:
+        return "Error: missing file path. Provide `relative_path` (preferred) or `path`."
+    target = repo_root / resolved_path
     try:
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
@@ -195,7 +209,7 @@ def write_file_in_repo(repo_name: str, relative_path: str, content: str) -> str:
 
 
 @tool
-def create_file(repo_name: str, relative_path: str, content: str) -> str:
+def create_file(repo_name: str, relative_path: str = "", content: str = "", path: str = "") -> str:
     """
     Create a new file in a local repository.
 
@@ -211,7 +225,12 @@ def create_file(repo_name: str, relative_path: str, content: str) -> str:
         Confirmation message, or an error message.
     """
     repo_root = repo_path(repo_name)
-    target = repo_root / relative_path
+    if not content:
+        return "Error: missing file content."
+    resolved_path = _resolve_relative_path(relative_path, path)
+    if not resolved_path:
+        return "Error: missing file path. Provide `relative_path` (preferred) or `path`."
+    target = repo_root / resolved_path
     if target.exists():
         return f"Error: file already exists: {target}"
     try:

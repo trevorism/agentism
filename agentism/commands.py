@@ -14,6 +14,7 @@ from rich.table import Table
 from rich.text import Text
 
 from agentism import config
+from agentism.memory_store import clear_thread_memory
 from agentism.state import AgentState
 from agentism.tool_metadata import render_tool_table_rows
 
@@ -35,6 +36,7 @@ async def clear_thread(tid: str) -> None:
             if table in existing:
                 await db.execute(f"DELETE FROM {table} WHERE thread_id = ?", (tid,))
         await db.commit()
+    await clear_thread_memory(tid, db_path=config.MEMORY_DB)
 
 
 # ---------------------------------------------------------------------------

@@ -12,7 +12,9 @@ GITHUB_PARAMETER_HINTS = {
     "search_issues": ["query"],
     "list_repositories": ["org", "username"],
     "get_file_contents": ["owner", "repo", "path"],
-    "create_pull_request": ["owner", "repo", "title", "head", "base", "body"],
+    "create_branch": ["owner", "repo", "branch", "from_branch"],
+    "create_pull_request": ["owner", "repo", "title", "head", "base"],
+    "merge_pull_request": ["owner", "repo", "pullNumber"],
     "get_issue": ["owner", "repo", "issue_number"],
 }
 

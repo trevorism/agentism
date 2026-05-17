@@ -23,6 +23,7 @@ dependencies = [
     { name = "langgraph-checkpoint-sqlite" },
     { name = "python-dotenv" },
     { name = "rich" },
+    { name = "sqlite-vec" },
 ]
 
 [package.dev-dependencies]
@@ -45,6 +46,7 @@ requires-dist = [
     { name = "langgraph-checkpoint-sqlite", specifier = ">=2.0" },
     { name = "python-dotenv", specifier = ">=1.0" },
     { name = "rich", specifier = ">=13.0" },
+    { name = "sqlite-vec", specifier = ">=0.1.6" },
 ]
 
 [package.metadata.requires-dev]

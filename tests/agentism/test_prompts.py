@@ -290,3 +290,9 @@ def test_issue_ref_to_prompt_includes_not_found_fallback():
     assert "search_issues" in prompt
     assert "search_repositories" in prompt
 
+
+def test_base_system_prompt_requires_github_mcp_owner_repo_params():
+    """System prompt should explicitly warn about GitHub MCP tool requirements."""
+    assert "GitHub MCP tools ALWAYS require `owner` and `repo`" in BASE_SYSTEM_PROMPT
+    assert "create_pull_request" in BASE_SYSTEM_PROMPT
+    assert "do not call" in BASE_SYSTEM_PROMPT.lower()

@@ -149,6 +149,34 @@ async def check_memory_db() -> HealthCheck:
         return HealthCheck("Memory DB", "Error", str(e), "Check database file permissions")
 
 
+async def check_embedding_model() -> HealthCheck:
+    """Check if the embedding model is available in Ollama."""
+    embed_model = config.OLLAMA_EMBED_MODEL
+    try:
+        async with httpx.AsyncClient() as client:
+            resp = await client.get(f"{config.OLLAMA_BASE_URL}/api/tags")
+            if resp.status_code != 200:
+                return HealthCheck(
+                    "Embeddings", "Warning", f"Cannot list Ollama models (HTTP {resp.status_code})",
+                    "Check Ollama is running and OLLAMA_BASE_URL is correct"
+                )
+            data = resp.json()
+            models = [m.get("name", "") for m in data.get("models", []) if isinstance(m, dict)]
+
+            found = any(embed_model in m for m in models)
+            if found:
+                return HealthCheck("Embeddings", "OK", f"Model available: {embed_model}")
+
+            return HealthCheck(
+                "Embeddings", "Warning",
+                f"Model '{embed_model}' not available. Semantic memory disabled.",
+                f"Pull the model: `ollama pull {embed_model}`"
+            )
+    except Exception as e:
+        return HealthCheck("Embeddings", "Warning", f"Cannot reach embeddings: {str(e)[:60]}",
+                           f"Start Ollama: `ollama serve`")
+
+
 def check_pwsh() -> HealthCheck:
     """Check if PowerShell 7+ is available."""
     try:
@@ -211,6 +239,7 @@ async def run_health_checks(active_model: str | None = None) -> list[HealthCheck
         _async_check(check_git_config),
         _async_check(check_disk_space),
         _async_check(check_memory_db),
+        _async_check(check_embedding_model),
         _async_check(check_pwsh),
         _async_check(check_node),
     ]
