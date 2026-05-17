@@ -291,11 +291,13 @@ async def test_run_health_checks_passes_active_model_override():
                 with patch("tools.health.check_disk_space", return_value=HealthCheck("Disk", "OK", "OK")):
                     with patch("tools.health.check_memory_db", new_callable=AsyncMock) as mock_db:
                         mock_db.return_value = HealthCheck("DB", "OK", "OK")
-                        with patch("tools.health.check_pwsh", return_value=HealthCheck("PS", "OK", "OK")):
-                            with patch("tools.health.check_node", return_value=HealthCheck("Node", "OK", "OK")):
-                                results = await run_health_checks(active_model="qwen3.6")
+                        with patch("tools.health.check_embedding_model", new_callable=AsyncMock) as mock_embed:
+                            mock_embed.return_value = HealthCheck("Embedding", "OK", "OK")
+                            with patch("tools.health.check_pwsh", return_value=HealthCheck("PS", "OK", "OK")):
+                                with patch("tools.health.check_node", return_value=HealthCheck("Node", "OK", "OK")):
+                                    results = await run_health_checks(active_model="qwen3.6")
 
-    assert len(results) == 7
+    assert len(results) == 8
     assert all(isinstance(r, HealthCheck) for r in results)
     mock_ollama.assert_awaited_once_with("qwen3.6")
 

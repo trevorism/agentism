@@ -51,6 +51,7 @@ _COMMANDS: list[tuple[str, str, bool, str]] = [
     ("threads", "cmd_threads", True,  "List all saved threads"),
     ("clear",   "cmd_clear",   True,  "Delete history for current thread"),
     ("model",   "cmd_model",   False, "Hot-swap the Ollama model"),
+    ("auto",    "cmd_auto",    False, "Toggle autonomous mode (skip plan confirmation)"),
     ("cost",    "cmd_cost",    False, "Show token usage this session"),
     ("retry",   "cmd_retry",   False, "Re-run the last message"),
     ("issue",   "cmd_issue",   False, "Load a GitHub issue mid-session"),
@@ -153,11 +154,20 @@ class ReplCommands:
             return
         new_model = args[0].strip()
         try:
-            self.state.agent = self._build_agent(new_model)
+            self.state.agent = self._build_agent(new_model, auto_mode=self.state.auto_mode)
             self.state.model = new_model
             console.print(f"[green]✓[/green] Model switched to [bold]{new_model}[/bold].")
         except Exception as e:
             console.print(f"[red]Model switch failed:[/red] {e}")
+
+    def cmd_auto(self) -> None:
+        self.state.auto_mode = not self.state.auto_mode
+        try:
+            self.state.agent = self._build_agent(self.state.model, auto_mode=self.state.auto_mode)
+            status = "[green]enabled[/green]" if self.state.auto_mode else "[yellow]disabled[/yellow]"
+            console.print(f"[cyan]Auto mode[/cyan] {status}. Agent will {'skip' if self.state.auto_mode else 'request'} plan confirmation.")
+        except Exception as e:
+            console.print(f"[red]Auto mode toggle failed:[/red] {e}")
 
     def cmd_cost(self) -> None:
         t = self.state.session_tokens

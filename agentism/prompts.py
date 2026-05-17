@@ -111,8 +111,38 @@ Given a PR: use MCP tools to read the diff, then provide (1) summary of changes,
 - When in doubt about repo exploration or tool chaining, continue autonomously; only ask the user if blocked by missing credentials, missing permissions, or contradictory requirements.
 """
 
-def build_system_prompt(all_tools: list, knowledge_files: set[str] | None = None) -> str:
-    """Build a compact system prompt from static policy plus active tool metadata."""
+PLANNING_PAUSE_INSTRUCTIONS = """## Plan confirmation workflow (implementation tasks only)
+When the user requests implementation/code changes (using keywords like "implement", "fix", "refactor", "add", "create", "update", "write", "patch", "bug"):
+
+1. **Design Phase**: Understand the requirement. Immediately inspect the target repo with read_repo_overview and read relevant files autonomously without asking permission.
+
+2. **Plan Summarization**: After inspection, output a clear, structured plan including:
+   - Summary of the problem/requirement
+   - High-level approach (architecture/algorithm)
+   - Files that will be created/modified
+   - Testing strategy
+   - Expected outcome
+
+3. **WAIT FOR CONFIRMATION**: After outputting the plan, STOP and wait for the user to confirm, ask clarifying questions, or request changes. Do NOT proceed to implementation until you receive explicit approval or feedback.
+
+4. **Clarifying Questions (Optional)**: If anything is ambiguous, ask the user:
+   - Are there edge cases I should handle?
+   - Any preference on implementation style or libraries?
+   - Testing coverage expectations?
+   - Performance or security constraints?
+
+5. **Implementation Phase (after user confirms)**: Only after receiving confirmation, proceed with:
+   - git_create_branch, write_file_in_repo, run_tests, git_commit_and_push, create_pull_request
+   - Follow the Code change workflow section above exactly.
+
+This ensures the user has visibility and control over engineering decisions before code is written."""
+
+def build_system_prompt(all_tools: list, knowledge_files: set[str] | None = None, auto_mode: bool = False) -> str:
+    """Build a compact system prompt from static policy plus active tool metadata.
+
+    If auto_mode=False (default), includes plan confirmation workflow instructions.
+    If auto_mode=True, skips confirmation prompts for full autonomous execution.
+    """
     local_lines = []
     github_names = []
 
@@ -131,6 +161,10 @@ def build_system_prompt(all_tools: list, knowledge_files: set[str] | None = None
             local_lines.append(f"- {tool.name}: {tool.description}")
 
     prompt_parts = [BASE_SYSTEM_PROMPT]
+
+    # Include plan confirmation workflow only when not in auto mode
+    if not auto_mode:
+        prompt_parts.append(PLANNING_PAUSE_INSTRUCTIONS)
 
     selected_knowledge = knowledge_files or _knowledge_files_from_env()
     knowledge = load_knowledge(selected_knowledge)

@@ -32,5 +32,6 @@ class AgentState:
     session_history: list = field(default_factory=list)
     session_tokens: TokenUsage = field(default_factory=TokenUsage)
     last_user_input: str = ""
+    auto_mode: bool = False
 
 

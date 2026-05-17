@@ -228,7 +228,7 @@ async def main_async(
 
         async with AsyncSqliteSaver.from_conn_string(config.MEMORY_DB) as checkpointer:
 
-            def build_agent(model_name: str):
+            def build_agent(model_name: str, auto_mode: bool = False):
                 llm = ChatOllama(**_ollama_client_kwargs(model_name))
                 tool_node = ToolNode(all_tools, handle_tool_errors=True)
                 with warnings.catch_warnings():
@@ -236,24 +236,27 @@ async def main_async(
                     return create_react_agent(
                         llm,
                         tools=tool_node,
-                        prompt=build_system_prompt(all_tools),
+                        prompt=build_system_prompt(all_tools, auto_mode=auto_mode),
                         checkpointer=checkpointer,
                     )
 
             state = AgentState(
                 thread_id=initial_thread,
                 model=models["executor"],
-                agent=build_agent(models["executor"]),
+                agent=build_agent(models["executor"], auto_mode=False),
             )
 
             commands = ReplCommands(state=state, all_tools=all_tools, build_agent_fn=build_agent)
 
             console.print(f"[green]✓[/green] {len(all_tools)} tools active.\n")
+            
+            auto_status = "[green]enabled[/green]" if state.auto_mode else "[yellow]disabled[/yellow]"
+            console.print(f"[cyan]Auto mode:[/cyan] {auto_status} (use [bold]!auto[/bold] to toggle)\n")
 
             async def run_turn(user_input: str) -> str:
                 start = time.monotonic()
                 chosen_model = _select_turn_model(user_input, state.model, models)
-                active_agent = state.agent if chosen_model == state.model else build_agent(chosen_model)
+                active_agent = state.agent if chosen_model == state.model else build_agent(chosen_model, auto_mode=state.auto_mode)
                 memory_block = ""
                 turn_input = user_input
 
