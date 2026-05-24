@@ -39,6 +39,27 @@ Use this checklist when the user asks for a dependency modernization or release 
 
 ## Required Gradle updates
 
+### Gradle wrapper upgrade (required)
+
+Run the wrapper task explicitly and in isolation so it does not get mixed with build/test tasks.
+
+```powershell
+.\gradlew.bat --stop
+.\gradlew.bat wrapper --gradle-version latest --distribution-type bin --no-daemon --stacktrace
+```
+
+If `latest` is not accepted in the target repo/tooling, run the same command with a concrete version.
+
+```powershell
+.\gradlew.bat wrapper --gradle-version 9.2.0 --distribution-type bin --no-daemon --stacktrace
+```
+
+Notes:
+- Use `--no-daemon` to avoid daemon startup/lock delays that can look like hangs in automation.
+- Run wrapper as a standalone command, then run tests in a separate command.
+- Run this after changes to build.gradle files but before any other build/test tasks
+- Verify updates in `gradle/wrapper/gradle-wrapper.properties` (distribution URL) and wrapper scripts/jar changes.
+
 ### buildscript classpath
 
 ```groovy

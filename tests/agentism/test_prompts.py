@@ -225,6 +225,7 @@ def test_real_knowledge_files_are_loaded():
     assert "platform-overview" in content.lower() or "Technology stack" in content
     assert "Dependency upgrade playbook" in content
     assert "JDK version to `25`" in content
+    assert ".\\gradlew.bat wrapper --gradle-version latest" in content
 
 
 def test_build_system_prompt_restricts_param_hints_to_high_risk_tools():
