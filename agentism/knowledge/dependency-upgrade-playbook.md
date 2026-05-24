@@ -51,7 +51,7 @@ Run the wrapper task explicitly and in isolation so it does not get mixed with b
 If `latest` is not accepted in the target repo/tooling, run the same command with a concrete version.
 
 ```powershell
-.\gradlew.bat wrapper --gradle-version 9.2.0 --distribution-type bin --no-daemon --stacktrace
+.\gradlew.bat wrapper --gradle-version 9.5.1 --distribution-type bin --no-daemon --stacktrace
 ```
 
 Notes:
@@ -87,8 +87,21 @@ plugins {
 ```groovy
 dependencies {
     implementation 'io.projectreactor:reactor-core:3.8.5'
-    implementation 'com.trevorism:micronaut-utility-beans:1.7.2'
     implementation 'com.google.code.gson:gson:2.14.0'
+    implementation 'com.trevorism:kraken:1.1.0'
+    implementation 'com.trevorism:gradle-acceptance-plugin:2.8.2'
+    implementation 'com.trevorism:schedule-client:1.0.0'
+    implementation 'com.trevorism:http-utils:2.2.0'
+    implementation 'com.trevorism:reactions-client:0.6.0'
+    implementation 'com.trevorism:datastore-client:4.1.0'
+    implementation 'com.trevorism:gradle-release-plugin:0.7.0'
+    implementation 'com.trevorism:threshold-client:1.1.0'
+    implementation 'com.trevorism:secure-utils:6.0.0'
+    implementation 'com.trevorism:secure-http-utils:3.2.1'
+    implementation 'com.trevorism:micronaut-security-utils:2.3.3'
+    implementation 'com.trevorism:micronaut-utility-beans:1.7.2'
+    implementation 'com.trevorism:micronaut-platform-proxy:0.1.1'
+    implementation 'com.trevorism:event-client:0.1.1'
 }
 ```
 
@@ -112,6 +125,7 @@ micronautVersion=5.0.0
 
 ## Build workflow requirement
 
+- Note: call-cypress does not need a JDK_VERSION update since it does not run Java code
 - If not already present, add a GitHub Actions workflow to build the project on pull requests.
 - Example workflow name: `build.yml`
 - Basic steps:
