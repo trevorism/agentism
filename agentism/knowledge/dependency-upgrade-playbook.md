@@ -127,14 +127,21 @@ micronautVersion=5.0.0
 
 - Note: call-cypress does not need a JDK_VERSION update since it does not run Java code
 - If not already present, add a GitHub Actions workflow to build the project on pull requests.
-- Example workflow name: `build.yml`
-- Basic steps:
-   on: `pull_request`
+- Example workflow name: `build.yml`. Make sure it has write-all permissions and runs on pull requests to master.
+- Content:
+
+```yaml
+name: Build and test on pull requests
+
+on:
+  pull_request:
   workflow_dispatch:
 
 permissions: write-all
-- jobs:
-    call-build:
+
+jobs:
+  call-build:
     uses: trevorism/actions-workflows/.github/workflows/build.yml@master
     with:
       JDK_VERSION: 25
+```
