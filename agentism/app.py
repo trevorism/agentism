@@ -1,10 +1,12 @@
 """Application orchestration for the Agentism REPL."""
 import asyncio
+import importlib
 import inspect
 import os
 import re
 import time
 import warnings
+from typing import Protocol
 
 from langchain_ollama import ChatOllama
 from langchain_core.messages import HumanMessage
@@ -76,6 +78,10 @@ _AUTO_MODE_BLOCKER_MARKERS = (
     "repo does not exist",
     "repository does not exist",
 )
+
+
+class _AsyncPromptSession(Protocol):
+    async def prompt_async(self, prompt_text: str) -> str: ...
 
 
 def _routing_models(default_model: str) -> dict[str, str]:
@@ -255,10 +261,41 @@ def print_welcome() -> None:
         f"Context : {history_info}  (set OLLAMA_NUM_CTX / AGENT_MAX_HISTORY_TURNS in .env)\n"
         f"Memory: [green]{config.MEMORY_DB}[/green] (SQLite + embeddings: {config.OLLAMA_EMBED_MODEL})\n"
         f"GitHub: MCP  |  Workspace: [green]{config.WORKSPACE_DIR}[/green]\n\n"
-        "Type your task and press Enter. Type [bold]!help[/bold] for commands.",
+        "Type your task and press Enter. Use Up/Down for prompt history. Type [bold]!help[/bold] for commands.",
         title="Platform Dev Agent",
         border_style="cyan",
     ))
+
+
+def _format_repl_prompt(thread_id: str) -> str:
+    return f"You (thread: {thread_id})> "
+
+
+def _load_prompt_toolkit() -> tuple[object, object] | tuple[None, None]:
+    try:
+        prompt_toolkit = importlib.import_module("prompt_toolkit")
+        prompt_history = importlib.import_module("prompt_toolkit.history")
+    except ImportError:
+        return None, None
+    return prompt_toolkit.PromptSession, prompt_history.InMemoryHistory
+
+
+def _build_repl_prompt_session(history=None, prompt_session_cls=None, history_cls=None) -> _AsyncPromptSession | None:
+    if prompt_session_cls is None or history_cls is None:
+        prompt_session_cls, history_cls = _load_prompt_toolkit()
+    if prompt_session_cls is None or history_cls is None:
+        return None
+    try:
+        return prompt_session_cls(history=history or history_cls())
+    except Exception:
+        return None
+
+
+async def _read_user_input(prompt_session: _AsyncPromptSession | None, thread_id: str) -> str:
+    prompt_text = _format_repl_prompt(thread_id)
+    if prompt_session is not None:
+        return await prompt_session.prompt_async(prompt_text)
+    return Prompt.ask(prompt_text)
 
 
 def _augment_user_input_with_memory(user_input: str, memory_block: str) -> str:
@@ -383,6 +420,7 @@ async def main_async(
             
             auto_status = "[green]enabled[/green]" if state.auto_mode else "[yellow]disabled[/yellow]"
             console.print(f"[cyan]Auto mode:[/cyan] {auto_status} (use [bold]!auto[/bold] to toggle)\n")
+            prompt_session = _build_repl_prompt_session()
 
             async def run_turn(user_input: str) -> str:
                 start = time.monotonic()
@@ -390,6 +428,8 @@ async def main_async(
                 active_agent = state.agent if chosen_model == state.model else build_agent(chosen_model, auto_mode=state.auto_mode)
                 async def execute_turn(turn_prompt: str, memory_query: str | None = None) -> tuple[str, TokenUsage]:
                     turn_input = turn_prompt
+                    response = ""
+                    tokens = TokenUsage()
 
                     if memory_query:
                         try:
@@ -549,9 +589,7 @@ async def main_async(
 
             while True:
                 try:
-                    user_input = Prompt.ask(
-                        f"[bold cyan]You[/bold cyan] [dim](thread: {state.thread_id})[/dim]"
-                    ).strip()
+                    user_input = (await _read_user_input(prompt_session, state.thread_id)).strip()
                 except (EOFError, KeyboardInterrupt):
                     console.print("\n[dim]Goodbye.[/dim]")
                     break

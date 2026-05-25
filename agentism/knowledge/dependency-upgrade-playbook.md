@@ -33,6 +33,9 @@ Use this checklist when the user asks for a dependency modernization or release 
 ## Required Java and runtime updates
 
 - In `.github/workflows/*`, set JDK version to `25`.
+- Audit every relevant workflow file instead of updating only the obvious CI files.
+- At minimum, check `build.yml`, `test.yml`, and `deploy.yml` when they exist.
+- Also inspect any reusable workflow callers or environment-specific workflow files that pass Java/JDK/runtime values.
 - In `src/main/app.yaml`, set runtime to `java25`.
 
 ---

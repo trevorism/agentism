@@ -181,6 +181,70 @@ def test_build_auto_mode_continue_prompt_demands_completed_result():
     assert "Original request:\nImplement the bug fix" in prompt
 
 
+def test_format_repl_prompt_includes_thread_id():
+    assert app._format_repl_prompt("feature-upgrade") == "You (thread: feature-upgrade)> "
+
+
+def test_build_repl_prompt_session_uses_in_memory_history():
+    created = {}
+
+    class FakeHistory:
+        pass
+
+    class FakePromptSession:
+        def __init__(self, history):
+            created["history"] = history
+            self.history = history
+
+    session = app._build_repl_prompt_session(
+        prompt_session_cls=FakePromptSession,
+        history_cls=FakeHistory,
+    )
+
+    assert session is not None
+    assert isinstance(created["history"], FakeHistory)
+
+
+def test_build_repl_prompt_session_returns_none_when_console_setup_fails():
+    class FakeHistory:
+        pass
+
+    class FailingPromptSession:
+        def __init__(self, history):
+            raise RuntimeError("no console")
+
+    session = app._build_repl_prompt_session(
+        prompt_session_cls=FailingPromptSession,
+        history_cls=FakeHistory,
+    )
+
+    assert session is None
+
+
+@pytest.mark.asyncio
+async def test_read_user_input_uses_prompt_session():
+    seen = {}
+
+    class FakePromptSession:
+        async def prompt_async(self, prompt_text):
+            seen["prompt_text"] = prompt_text
+            return "hello world"
+
+    user_input = await app._read_user_input(FakePromptSession(), "main")
+
+    assert user_input == "hello world"
+    assert seen["prompt_text"] == "You (thread: main)> "
+
+
+@pytest.mark.asyncio
+async def test_read_user_input_falls_back_to_rich_prompt(monkeypatch):
+    monkeypatch.setattr(app.Prompt, "ask", lambda prompt_text: f"fallback::{prompt_text}")
+
+    user_input = await app._read_user_input(None, "main")
+
+    assert user_input == "fallback::You (thread: main)> "
+
+
 def test_augment_user_input_with_memory_includes_context_and_request():
     result = app._augment_user_input_with_memory(
         "Implement the fix",
