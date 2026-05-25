@@ -43,6 +43,8 @@ Use this checklist when the user asks for a dependency modernization or release 
 
 Run the wrapper task explicitly and in isolation so it does not get mixed with build/test tasks.
 
+This is mandatory: do **not** manually edit `gradle/wrapper/gradle-wrapper.properties` to simulate a wrapper upgrade. The upgrade must come from running the wrapper task so wrapper executables/artifacts are regenerated and can be committed.
+
 ```powershell
 .\gradlew.bat --stop
 .\gradlew.bat wrapper --gradle-version latest --distribution-type bin --no-daemon --stacktrace
@@ -58,7 +60,8 @@ Notes:
 - Use `--no-daemon` to avoid daemon startup/lock delays that can look like hangs in automation.
 - Run wrapper as a standalone command, then run tests in a separate command.
 - Run this after changes to build.gradle files but before any other build/test tasks
-- Verify updates in `gradle/wrapper/gradle-wrapper.properties` (distribution URL) and wrapper scripts/jar changes.
+- Never "upgrade wrapper" by editing `gradle/wrapper/gradle-wrapper.properties` directly.
+- Verify updates include `gradle/wrapper/gradle-wrapper.properties` (distribution URL) **and** wrapper executable/artifact files (for example `gradlew`, `gradlew.bat`, and `gradle/wrapper/gradle-wrapper.jar` when present).
 
 ### buildscript classpath
 
