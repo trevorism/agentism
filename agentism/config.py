@@ -91,4 +91,14 @@ MEMORY_CHUNK_OVERLAP: int = _optional_int("MEMORY_CHUNK_OVERLAP", 120)
 WORKSPACE_DIR: Path = _path("WORKSPACE_DIR", "./repos")
 WORKSPACE_DIR.mkdir(parents=True, exist_ok=True)
 
+# -- Context window management --
+# OLLAMA_NUM_CTX: override the context window size sent to Ollama (tokens).
+# Most 7-14B models support 8192-32768. 0 = let Ollama use the model default.
+OLLAMA_NUM_CTX: int = _optional_int("OLLAMA_NUM_CTX", 0)
+
+# AGENT_MAX_HISTORY_TURNS: trim the message history fed to the LLM per turn.
+# Each "turn" ≈ one Human + one AI exchange (plus any tool messages in between).
+# 0 = no trimming (use full checkpoint history). Default: 20 turns.
+AGENT_MAX_HISTORY_TURNS: int = _optional_int("AGENT_MAX_HISTORY_TURNS", 20)
+
 

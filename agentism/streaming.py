@@ -34,7 +34,10 @@ async def _astream_with_chunk_timeout(aiter, timeout_secs: float):
             raise asyncio.TimeoutError(
                 f"No response from model for {timeout_secs:.0f}s. "
                 "The model may be processing a very large context. "
-                "Try a faster model with !model."
+                "Try: (1) '!compact' to reset the thread context, "
+                "(2) set OLLAMA_NUM_CTX=16384 in .env to increase Ollama's context window, "
+                "(3) set AGENT_MAX_HISTORY_TURNS=10 in .env to cap history, "
+                "or (4) switch to a faster model with '!model'."
             )
 
 

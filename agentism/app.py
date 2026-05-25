@@ -118,14 +118,62 @@ def _ollama_client_kwargs(model_name: str) -> dict:
     }
     if config.OLLAMA_TOP_P is not None:
         kwargs["top_p"] = config.OLLAMA_TOP_P
+    if config.OLLAMA_NUM_CTX:
+        kwargs["num_ctx"] = config.OLLAMA_NUM_CTX
     return kwargs
 
 
+def _build_prompt_callable(system_prompt_str: str, max_turns: int):
+    """Return a prompt callable for create_react_agent.
+
+    Replaces the old messages_modifier pattern (removed in LangGraph ≥ 0.2.60).
+    The callable receives the full agent state and returns the exact message list
+    sent to the LLM: a single fresh SystemMessage followed by trimmed history.
+    Trimming is non-destructive — the checkpoint is not mutated.
+
+    Trimming strategy: only prior-turn messages are eligible for trimming.
+    The current turn (everything after the last HumanMessage) is always kept
+    intact so mid-turn tool results are never silently dropped.
+    """
+    from langchain_core.messages import SystemMessage, ToolMessage, HumanMessage
+
+    sys_msg = SystemMessage(content=system_prompt_str)
+
+    def _prompt(state) -> list:
+        messages = state.get("messages", [])
+        # Drop any existing system messages — we inject one fresh copy
+        non_system = [m for m in messages if not isinstance(m, SystemMessage)]
+
+        if max_turns and non_system:
+            # Split at the last HumanMessage so we never trim the current turn.
+            last_human = max(
+                (i for i, m in enumerate(non_system) if isinstance(m, HumanMessage)),
+                default=0,
+            )
+            prior = non_system[:last_human]
+            current_turn = non_system[last_human:]
+
+            cap = max_turns * 4  # generous: each turn can span multiple tool round-trips
+            if len(prior) > cap:
+                trimmed_prior = prior[-cap:]
+                # Never start with an orphaned ToolMessage
+                while trimmed_prior and isinstance(trimmed_prior[0], ToolMessage):
+                    trimmed_prior = trimmed_prior[1:]
+                non_system = trimmed_prior + current_turn
+
+        return [sys_msg] + non_system
+
+    return _prompt
+
+
 def print_welcome() -> None:
+    ctx_info = f"num_ctx={config.OLLAMA_NUM_CTX}" if config.OLLAMA_NUM_CTX else "num_ctx=model default"
+    history_info = f"max_history={config.AGENT_MAX_HISTORY_TURNS} turns" if config.AGENT_MAX_HISTORY_TURNS else "max_history=unlimited"
     console.print(Panel(
         f"[bold cyan]Agentism[/bold cyan]  🤖\n"
         f"Model : [green]{config.OLLAMA_MODEL}[/green] @ {config.OLLAMA_BASE_URL}\n"
-        f"LLM opts: temperature={config.OLLAMA_TEMPERATURE}, top_p={config.OLLAMA_TOP_P}\n"
+        f"LLM opts: temperature={config.OLLAMA_TEMPERATURE}, top_p={config.OLLAMA_TOP_P}, {ctx_info}\n"
+        f"Context : {history_info}  (set OLLAMA_NUM_CTX / AGENT_MAX_HISTORY_TURNS in .env)\n"
         f"Memory: [green]{config.MEMORY_DB}[/green] (SQLite + embeddings: {config.OLLAMA_EMBED_MODEL})\n"
         f"GitHub: MCP  |  Workspace: [green]{config.WORKSPACE_DIR}[/green]\n\n"
         "Type your task and press Enter. Type [bold]!help[/bold] for commands.",
@@ -231,12 +279,16 @@ async def main_async(
             def build_agent(model_name: str, auto_mode: bool = False):
                 llm = ChatOllama(**_ollama_client_kwargs(model_name))
                 tool_node = ToolNode(all_tools, handle_tool_errors=True)
+                prompt_callable = _build_prompt_callable(
+                    build_system_prompt(all_tools, auto_mode=auto_mode),
+                    config.AGENT_MAX_HISTORY_TURNS,
+                )
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
                     return create_react_agent(
                         llm,
                         tools=tool_node,
-                        prompt=build_system_prompt(all_tools, auto_mode=auto_mode),
+                        prompt=prompt_callable,
                         checkpointer=checkpointer,
                     )
 
@@ -305,9 +357,11 @@ async def main_async(
                             await clear_thread(state.thread_id)
                             state.session_history.clear()
                             try:
+                                # Use user_input, not turn_input: clear_thread wiped semantic
+                                # memory so the memory-augmented turn_input is now stale.
                                 response, tokens = await run_agent_turn(
                                     active_agent,
-                                    turn_input,
+                                    user_input,
                                     state.thread_id,
                                     debug=debug,
                                     chunk_timeout=chunk_timeout,
@@ -315,6 +369,33 @@ async def main_async(
                             except Exception as retry_e:
                                 console.print(f"[red]Retry also failed:[/red] {retry_e}")
                                 response = f"Both attempts failed.\n\nOriginal error: `{err_str}`\nRetry error: `{retry_e}`"
+                                tokens = TokenUsage()
+                        elif isinstance(e, asyncio.TimeoutError):
+                            console.print(
+                                f"[yellow]⚠ Context timeout ({chunk_timeout:.0f}s). "
+                                f"Auto-compacting thread '{state.thread_id}' and retrying...[/yellow]"
+                            )
+                            await clear_thread(state.thread_id)
+                            state.session_history.clear()
+                            try:
+                                # Re-run with original user_input — thread was cleared so
+                                # memory augmentation is no longer valid.
+                                response, tokens = await run_agent_turn(
+                                    active_agent,
+                                    user_input,
+                                    state.thread_id,
+                                    debug=debug,
+                                    chunk_timeout=chunk_timeout,
+                                )
+                            except Exception as retry_e:
+                                console.print(f"[red]Retry after compact also failed:[/red] {retry_e}")
+                                response = (
+                                    f"Thread compacted after {chunk_timeout:.0f}s timeout, "
+                                    f"but retry also failed.\n\nError: `{retry_e}`\n\n"
+                                    "The task may require a larger context window. "
+                                    "Try increasing `OLLAMA_NUM_CTX` in `.env` or switching "
+                                    "to a faster model with `!model`."
+                                )
                                 tokens = TokenUsage()
                         else:
                             console.print(f"[yellow]⚠ Stream error:[/yellow] {err_str}")

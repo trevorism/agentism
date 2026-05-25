@@ -50,6 +50,7 @@ _COMMANDS: list[tuple[str, str, bool, str]] = [
     ("thread",  "cmd_thread",  False, "Switch conversation thread"),
     ("threads", "cmd_threads", True,  "List all saved threads"),
     ("clear",   "cmd_clear",   True,  "Delete history for current thread"),
+    ("compact", "cmd_compact", True,  "Clear thread history to recover from context-length errors"),
     ("model",   "cmd_model",   False, "Hot-swap the Ollama model"),
     ("auto",    "cmd_auto",    False, "Toggle autonomous mode (skip plan confirmation)"),
     ("cost",    "cmd_cost",    False, "Show token usage this session"),
@@ -147,6 +148,28 @@ class ReplCommands:
             console.print(f"[green]✓[/green] Cleared thread [bold cyan]{tid}[/bold cyan].")
         except Exception as e:
             console.print(f"[red]Could not clear thread:[/red] {e}")
+
+    async def cmd_compact(self) -> None:
+        """Clear checkpoint history to recover from context-length / timeout errors.
+
+        This is a focused alias for !clear with guidance on next steps.
+        It removes the full SQLite checkpoint for the current thread so the next
+        turn starts with an empty context window.  Your session_history in this
+        process is also cleared.  Use !thread <name> beforehand if you want to
+        preserve the current thread and start a new one.
+        """
+        tid = self.state.thread_id
+        try:
+            await clear_thread(tid)
+            self.state.session_history.clear()
+            console.print(
+                f"[green]✓[/green] Compacted thread [bold cyan]{tid}[/bold cyan]. "
+                "Context window reset — continue from a clean slate.\n"
+                "[dim]Tip: if this recurs, set [bold]OLLAMA_NUM_CTX[/bold] (e.g. 16384) and/or "
+                "[bold]AGENT_MAX_HISTORY_TURNS[/bold] (e.g. 10) in your .env file.[/dim]"
+            )
+        except Exception as e:
+            console.print(f"[red]Could not compact thread:[/red] {e}")
 
     def cmd_model(self, args: list) -> None:
         if not args:
