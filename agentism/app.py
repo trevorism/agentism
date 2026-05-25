@@ -35,6 +35,47 @@ _REVIEW_HINTS = (
 _VERIFICATION_SIGNALS = (
     "run_tests", "pytest", "test result", "passed", "failed", "verification", "validated",
 )
+_AUTO_MODE_MAX_CONTINUATIONS = 3
+_AUTO_MODE_PLAN_MARKERS = (
+    "execution plan",
+    "implementation plan",
+    "baseline assessment",
+    "design phase",
+    "plan summarization",
+    "testing strategy",
+    "expected outcome",
+    "will execute",
+    "high-level approach",
+)
+_AUTO_MODE_CONFIRMATION_MARKERS = (
+    "wait for confirmation",
+    "await confirmation",
+    "please confirm",
+    "once you confirm",
+    "once confirmed",
+    "after you confirm",
+    "let me know if you want me to proceed",
+    "let me know if you'd like me to proceed",
+    "would you like me to proceed",
+    "tell me to continue",
+)
+_AUTO_MODE_BLOCKER_MARKERS = (
+    "blocked by",
+    "i'm blocked",
+    "i am blocked",
+    "cannot proceed",
+    "can't proceed",
+    "missing credentials",
+    "missing permission",
+    "missing permissions",
+    "permission denied",
+    "access denied",
+    "authentication failed",
+    "not found",
+    "resource not found",
+    "repo does not exist",
+    "repository does not exist",
+)
 
 
 def _routing_models(default_model: str) -> dict[str, str]:
@@ -81,6 +122,44 @@ def _should_run_critic_pass(user_input: str, response: str) -> bool:
         return False
     return _is_review_or_analysis_request(user_input) or (
         _is_implementation_request(user_input) and _missing_verification_evidence(response)
+    )
+
+
+def _is_blocked_response(response: str) -> bool:
+    lowered = (response or "").lower()
+    return any(marker in lowered for marker in _AUTO_MODE_BLOCKER_MARKERS)
+
+
+def _looks_like_auto_mode_interim_response(user_input: str, response: str) -> bool:
+    """Return True when auto mode should continue instead of surfacing the response."""
+    text = (response or "").strip()
+    if not text:
+        return False
+
+    lowered = text.lower()
+    if _is_blocked_response(text):
+        return False
+    if any(marker in lowered for marker in _AUTO_MODE_CONFIRMATION_MARKERS):
+        return True
+    if any(marker in lowered for marker in _AUTO_MODE_PLAN_MARKERS) and _missing_verification_evidence(text):
+        return True
+
+    plan_like_start = re.match(r"^\s*(i will|i'll|here(?: is|'s) (?:the )?(?:plan|approach)|my plan)\b", lowered)
+    if plan_like_start and (_is_implementation_request(user_input) or _is_review_or_analysis_request(user_input)):
+        return _missing_verification_evidence(text)
+
+    return False
+
+
+def _build_auto_mode_continue_prompt(user_input: str) -> str:
+    return (
+        "Auto mode is enabled. Your previous message was an interim plan or status update. "
+        "Do not ask for confirmation, do not restate the plan, and do not stop early. "
+        "Continue executing the original request right now using the available tools. "
+        "Only respond when you have a concrete result or when you are truly blocked by missing "
+        "credentials, permissions, or an inaccessible/nonexistent resource.\n\n"
+        "Original request:\n"
+        f"{user_input}"
     )
 
 
@@ -309,34 +388,34 @@ async def main_async(
                 start = time.monotonic()
                 chosen_model = _select_turn_model(user_input, state.model, models)
                 active_agent = state.agent if chosen_model == state.model else build_agent(chosen_model, auto_mode=state.auto_mode)
-                memory_block = ""
-                turn_input = user_input
+                async def execute_turn(turn_prompt: str, memory_query: str | None = None) -> tuple[str, TokenUsage]:
+                    turn_input = turn_prompt
 
-                try:
-                    snippets = await memory_store.retrieve_context(
-                        state.thread_id,
-                        user_input,
-                        max_items=config.MEMORY_RETRIEVAL_LIMIT,
-                        max_chars=config.MEMORY_CONTEXT_CHAR_BUDGET,
-                    )
-                    memory_block = format_memory_block(snippets)
-                    turn_input = _augment_user_input_with_memory(user_input, memory_block)
-                except RuntimeError as mem_read_err:
-                    err_msg = str(mem_read_err)
-                    if "not found" in err_msg.lower() or "cannot connect" in err_msg.lower():
-                        console.print(
-                            f"[yellow]⚠[/yellow] Semantic memory unavailable. Run [bold]!health[/bold] to diagnose."
-                        )
-                    else:
-                        console.print(f"[yellow]⚠[/yellow] Memory retrieval skipped: {err_msg[:80]}")
+                    if memory_query:
+                        try:
+                            snippets = await memory_store.retrieve_context(
+                                state.thread_id,
+                                memory_query,
+                                max_items=config.MEMORY_RETRIEVAL_LIMIT,
+                                max_chars=config.MEMORY_CONTEXT_CHAR_BUDGET,
+                            )
+                            memory_block = format_memory_block(snippets)
+                            turn_input = _augment_user_input_with_memory(turn_prompt, memory_block)
+                        except RuntimeError as mem_read_err:
+                            err_msg = str(mem_read_err)
+                            if "not found" in err_msg.lower() or "cannot connect" in err_msg.lower():
+                                console.print(
+                                    f"[yellow]⚠[/yellow] Semantic memory unavailable. Run [bold]!health[/bold] to diagnose."
+                                )
+                            else:
+                                console.print(f"[yellow]⚠[/yellow] Memory retrieval skipped: {err_msg[:80]}")
 
-                async def heartbeat():
-                    while True:
-                        await asyncio.sleep(30)
-                        elapsed = time.monotonic() - start
-                        console.print(f"  [dim]⏱ still working... {elapsed:.0f}s[/dim]")
+                    async def heartbeat():
+                        while True:
+                            await asyncio.sleep(30)
+                            elapsed = time.monotonic() - start
+                            console.print(f"  [dim]⏱ still working... {elapsed:.0f}s[/dim]")
 
-                try:
                     console.print("[cyan]Agent working...[/cyan]")
                     hb = asyncio.create_task(heartbeat())
                     try:
@@ -357,11 +436,9 @@ async def main_async(
                             await clear_thread(state.thread_id)
                             state.session_history.clear()
                             try:
-                                # Use user_input, not turn_input: clear_thread wiped semantic
-                                # memory so the memory-augmented turn_input is now stale.
                                 response, tokens = await run_agent_turn(
                                     active_agent,
-                                    user_input,
+                                    turn_prompt,
                                     state.thread_id,
                                     debug=debug,
                                     chunk_timeout=chunk_timeout,
@@ -378,11 +455,9 @@ async def main_async(
                             await clear_thread(state.thread_id)
                             state.session_history.clear()
                             try:
-                                # Re-run with original user_input — thread was cleared so
-                                # memory augmentation is no longer valid.
                                 response, tokens = await run_agent_turn(
                                     active_agent,
-                                    user_input,
+                                    turn_prompt,
                                     state.thread_id,
                                     debug=debug,
                                     chunk_timeout=chunk_timeout,
@@ -410,9 +485,27 @@ async def main_async(
                             await hb
                         except asyncio.CancelledError:
                             pass
-                        elapsed = time.monotonic() - start
-                        if elapsed > 5:
-                            console.print(f"  [dim]✓ completed in {elapsed:.1f}s[/dim]")
+
+                    return response, tokens
+
+                try:
+                    response, tokens = await execute_turn(user_input, memory_query=user_input)
+                    if state.auto_mode:
+                        for attempt in range(_AUTO_MODE_MAX_CONTINUATIONS):
+                            if not _looks_like_auto_mode_interim_response(user_input, response):
+                                break
+                            console.print(
+                                f"[cyan]Auto mode:[/cyan] interim plan detected; continuing execution "
+                                f"({attempt + 1}/{_AUTO_MODE_MAX_CONTINUATIONS})..."
+                            )
+                            followup_response, followup_tokens = await execute_turn(
+                                _build_auto_mode_continue_prompt(user_input)
+                            )
+                            tokens.add(followup_tokens)
+                            response = followup_response
+                    elapsed = time.monotonic() - start
+                    if elapsed > 5:
+                        console.print(f"  [dim]✓ completed in {elapsed:.1f}s[/dim]")
                     if _should_run_critic_pass(user_input, response):
                         critic_model = models.get("critic", state.model)
                         try:

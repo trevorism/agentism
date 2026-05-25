@@ -135,6 +135,52 @@ def test_should_not_run_critic_pass_when_verification_is_present():
     assert should_run is False
 
 
+def test_looks_like_auto_mode_interim_response_for_execution_plan():
+    response = """I will upgrade the repositories to the latest compatible versions.\n\nExecution Plan\n1. Baseline Assessment\n2. Apply upgrades\n3. Validate results"""
+
+    should_continue = app._looks_like_auto_mode_interim_response(
+        "Upgrade the repositories and verify the results",
+        response,
+    )
+
+    assert should_continue is True
+
+
+def test_looks_like_auto_mode_interim_response_for_confirmation_request():
+    should_continue = app._looks_like_auto_mode_interim_response(
+        "Implement the bug fix",
+        "I inspected the code and have a plan. Please confirm and I will proceed.",
+    )
+
+    assert should_continue is True
+
+
+def test_looks_like_auto_mode_interim_response_ignores_completed_result():
+    should_continue = app._looks_like_auto_mode_interim_response(
+        "Implement the bug fix",
+        "Updated src/main.py, ran pytest, and all tests passed.",
+    )
+
+    assert should_continue is False
+
+
+def test_looks_like_auto_mode_interim_response_ignores_real_blocker():
+    should_continue = app._looks_like_auto_mode_interim_response(
+        "Implement the bug fix",
+        "I cannot proceed because the repository was not found with the provided owner/repo.",
+    )
+
+    assert should_continue is False
+
+
+def test_build_auto_mode_continue_prompt_demands_completed_result():
+    prompt = app._build_auto_mode_continue_prompt("Implement the bug fix")
+
+    assert "Do not ask for confirmation" in prompt
+    assert "Only respond when you have a concrete result" in prompt
+    assert "Original request:\nImplement the bug fix" in prompt
+
+
 def test_augment_user_input_with_memory_includes_context_and_request():
     result = app._augment_user_input_with_memory(
         "Implement the fix",

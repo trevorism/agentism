@@ -14,6 +14,22 @@ def test_build_system_prompt_includes_base_rules():
     assert "## Available tools" not in prompt
 
 
+def test_build_system_prompt_keeps_confirmation_workflow_when_auto_mode_is_disabled():
+    prompt = build_system_prompt([], auto_mode=False)
+
+    assert "## Plan confirmation workflow" in prompt
+    assert "WAIT FOR CONFIRMATION" in prompt
+
+
+def test_build_system_prompt_adds_autonomous_execution_rules_when_auto_mode_is_enabled():
+    prompt = build_system_prompt([], auto_mode=True)
+
+    assert "## Plan confirmation workflow" not in prompt
+    assert "## Autonomous execution mode" in prompt
+    assert "Do NOT stop after a plan" in prompt
+    assert "Only return a user-facing response when you have a concrete result" in prompt
+
+
 def test_build_system_prompt_lists_tools_deterministically():
     tools = [
         _tool("zeta_tool", "Zeta description."),

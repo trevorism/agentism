@@ -137,6 +137,17 @@ When the user requests implementation/code changes (using keywords like "impleme
 
 This ensures the user has visibility and control over engineering decisions before code is written."""
 
+AUTO_MODE_INSTRUCTIONS = """## Autonomous execution mode
+Auto mode is enabled for this conversation.
+
+- Do NOT stop after a plan, outline, checklist, or "Execution Plan" section.
+- Do NOT ask the user to confirm, approve, or tell you to continue.
+- After planning, immediately continue with tool calls and execution in the same turn.
+- Only return a user-facing response when you have a concrete result: completed analysis, implemented changes, verification evidence, created PR/branch details, or a real blocking issue.
+- If you are blocked, state the exact blocker (for example: missing credentials, missing permissions, inaccessible repo, or nonexistent resource) and stop.
+- If you catch yourself writing "I will..." or listing future steps, continue working instead of sending that interim update.
+"""
+
 def build_system_prompt(all_tools: list, knowledge_files: set[str] | None = None, auto_mode: bool = False) -> str:
     """Build a compact system prompt from static policy plus active tool metadata.
 
@@ -165,6 +176,8 @@ def build_system_prompt(all_tools: list, knowledge_files: set[str] | None = None
     # Include plan confirmation workflow only when not in auto mode
     if not auto_mode:
         prompt_parts.append(PLANNING_PAUSE_INSTRUCTIONS)
+    else:
+        prompt_parts.append(AUTO_MODE_INSTRUCTIONS)
 
     selected_knowledge = knowledge_files or _knowledge_files_from_env()
     knowledge = load_knowledge(selected_knowledge)
