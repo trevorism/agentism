@@ -103,7 +103,7 @@ plugins {
 dependencies {
     implementation 'io.projectreactor:reactor-core:3.8.5'
     implementation 'com.google.code.gson:gson:2.14.0'
-    implementation 'com.trevorism:kraken:1.1.0'
+    implementation 'com.trevorism:kraken:1.2.0'
     implementation 'com.trevorism:gradle-acceptance-plugin:2.8.2'
     implementation 'com.trevorism:schedule-client:1.0.0'
     implementation 'com.trevorism:http-utils:2.2.0'
@@ -113,8 +113,8 @@ dependencies {
     implementation 'com.trevorism:threshold-client:1.1.0'
     implementation 'com.trevorism:secure-utils:6.0.0'
     implementation 'com.trevorism:secure-http-utils:3.2.1'
-    implementation 'com.trevorism:micronaut-security-utils:2.3.3'
-    implementation 'com.trevorism:micronaut-utility-beans:1.7.2'
+    implementation 'com.trevorism:micronaut-security-utils:3.0.0'
+    implementation 'com.trevorism:micronaut-utility-beans:2.0.0'
     implementation 'com.trevorism:micronaut-platform-proxy:0.1.1'
     implementation 'com.trevorism:event-client:0.1.1'
 }
@@ -126,7 +126,7 @@ dependencies {
 - Ensure `gradle.properties` contains:
 
 ```properties
-micronautVersion=5.0.0
+micronautVersion=5.0.2
 ```
 
 ---
