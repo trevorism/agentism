@@ -61,3 +61,26 @@ def test_run_in_terminal_returns_stderr_block(monkeypatch):
     assert "boom" in result
 
 
+def test_run_in_terminal_retries_gradle_semantic_analysis_error(monkeypatch):
+    calls = []
+
+    def fake_run(args, capture_output, text, timeout):
+        calls.append(args)
+        if len(calls) == 1:
+            return _FakeCompletedProcess(
+                stdout="",
+                stderr="BUG! exception in phase 'semantic analysis' Unsupported class file major version 69",
+            )
+        return _FakeCompletedProcess(stdout="retry ok\n", stderr="")
+
+    monkeypatch.setattr("tools.shell.subprocess.run", fake_run)
+
+    result = run_in_terminal.func(".\\gradlew.bat test")
+
+    assert "Auto-retry" in result
+    assert "retry ok" in result
+    assert len(calls) == 2
+    assert "--stop" in calls[1][4]
+    assert "-le 24" in calls[1][4]
+
+

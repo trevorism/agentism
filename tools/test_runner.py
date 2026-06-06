@@ -2,11 +2,182 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
+import re
 import subprocess
 from pathlib import Path
 from langchain_core.tools import tool
 from agentism.config import DEV_DIR, WORKSPACE_DIR
+
+_GRADLE_SEMANTIC_ANALYSIS_ERROR = "Unsupported class file major version"
+_JAVA_RELEASE_VERSION_RE = re.compile(r"JAVA_VERSION=\"(\d+)(?:[.\"]|$)")
+
+
+def _extract_major_class_version(text: str) -> int | None:
+    match = re.search(r"Unsupported class file major version\s+(\d+)", text)
+    if not match:
+        return None
+    return int(match.group(1))
+
+
+def _java_version_from_release(java_home: str) -> int | None:
+    release_file = Path(java_home) / "release"
+    if not release_file.exists():
+        return None
+    try:
+        content = release_file.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    match = _JAVA_RELEASE_VERSION_RE.search(content)
+    return int(match.group(1)) if match else None
+
+
+def _candidate_java_homes_from_env(env: dict[str, str]) -> list[str]:
+    candidates: list[str] = []
+
+    def _append(path_value: str | None) -> None:
+        if not path_value:
+            return
+        p = Path(path_value)
+        if (p / "bin" / ("java.exe" if platform.system() == "Windows" else "java")).exists():
+            resolved = str(p.resolve())
+            if resolved not in candidates:
+                candidates.append(resolved)
+
+    _append(env.get("JAVA_HOME"))
+    for key, value in env.items():
+        key_upper = key.upper()
+        if "JAVA_HOME" in key_upper or key_upper.startswith("JDK"):
+            _append(value)
+
+    return candidates
+
+
+def _candidate_java_homes_from_filesystem() -> list[str]:
+    candidates: list[str] = []
+
+    if platform.system() == "Windows":
+        roots = [
+            Path("C:/Program Files/Java"),
+            Path("C:/Program Files/Eclipse Adoptium"),
+            Path("C:/Program Files/Microsoft"),
+        ]
+        java_exe = "java.exe"
+    else:
+        roots = [
+            Path("/usr/lib/jvm"),
+            Path("/opt/java"),
+            Path("/Library/Java/JavaVirtualMachines"),
+        ]
+        java_exe = "java"
+
+    for root in roots:
+        if not root.exists() or not root.is_dir():
+            continue
+        for child in root.iterdir():
+            if not child.is_dir():
+                continue
+            # macOS JDK bundles store binaries under Contents/Home.
+            java_home = child / "Contents" / "Home" if (child / "Contents" / "Home").is_dir() else child
+            if (java_home / "bin" / java_exe).exists():
+                resolved = str(java_home.resolve())
+                if resolved not in candidates:
+                    candidates.append(resolved)
+
+    return candidates
+
+
+def _select_compatible_java_home(env: dict[str, str], max_java_version: int) -> str | None:
+    best_home: str | None = None
+    best_version = -1
+
+    ordered_homes = _candidate_java_homes_from_env(env)
+    for home in _candidate_java_homes_from_filesystem():
+        if home not in ordered_homes:
+            ordered_homes.append(home)
+
+    for java_home in ordered_homes:
+        version = _java_version_from_release(java_home)
+        if version is None:
+            continue
+        if version <= max_java_version and version > best_version:
+            best_home = java_home
+            best_version = version
+
+    return best_home
+
+
+def _build_gradle_retry_env(env: dict[str, str], target_class_major: int | None) -> dict[str, str]:
+    retry_env = dict(env)
+    for key in ("JAVA_TOOL_OPTIONS", "_JAVA_OPTIONS", "JDK_JAVA_OPTIONS", "GRADLE_OPTS"):
+        retry_env.pop(key, None)
+
+    # Java classfile major version N corresponds to Java (N - 44).
+    if target_class_major and target_class_major > 44:
+        target_java = target_class_major - 44
+        fallback_max_java = max(8, target_java - 1)
+        fallback_java_home = _select_compatible_java_home(retry_env, fallback_max_java)
+        if fallback_java_home:
+            retry_env["JAVA_HOME"] = fallback_java_home
+            path_entries = retry_env.get("PATH", "").split(os.pathsep)
+            java_bin = str(Path(fallback_java_home) / "bin")
+            if java_bin not in path_entries:
+                retry_env["PATH"] = java_bin + os.pathsep + retry_env.get("PATH", "")
+
+    return retry_env
+
+
+def _run_suite_command(command: list[str], cwd: str) -> tuple[subprocess.CompletedProcess[str], str | None]:
+    env = os.environ.copy()
+    proc = subprocess.run(
+        command,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        shell=False,
+        env=env,
+    )
+
+    is_gradle = bool(command) and ("gradle" in Path(command[0]).name.lower())
+    combined_output = "\n".join(filter(None, [proc.stdout, proc.stderr]))
+    if not is_gradle or _GRADLE_SEMANTIC_ANALYSIS_ERROR not in combined_output:
+        return proc, None
+
+    target_major = _extract_major_class_version(combined_output)
+    retry_env = _build_gradle_retry_env(env, target_major)
+    stop_cmd = [command[0], "--stop"]
+    retry_command = command if "--no-daemon" in command else [*command, "--no-daemon"]
+
+    try:
+        subprocess.run(
+            stop_cmd,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            shell=False,
+            env=retry_env,
+        )
+    except Exception:
+        # A failed daemon stop should not block the real retry.
+        pass
+
+    retry_proc = subprocess.run(
+        retry_command,
+        cwd=cwd,
+        capture_output=True,
+        text=True,
+        timeout=300,
+        shell=False,
+        env=retry_env,
+    )
+    note = (
+        "Auto-retry: detected Gradle/JDK semantic-analysis mismatch; "
+        "stopped daemons, sanitized JVM env, and retried with --no-daemon."
+    )
+    return retry_proc, note
 
 
 def _repo_path(repo_name: str) -> Path:
@@ -124,14 +295,7 @@ def run_tests(repo_name: str, suite: str = "all") -> str:
     for s in suites:
         results.append(f"\n{'─'*60}\n▶ {s['label']}\n{'─'*60}")
         try:
-            proc = subprocess.run(
-                s["command"],
-                cwd=s["cwd"],
-                capture_output=True,
-                text=True,
-                timeout=300,
-                shell=False,
-            )
+            proc, retry_note = _run_suite_command(s["command"], s["cwd"])
             output = proc.stdout.strip()
             error = proc.stderr.strip()
             combined = "\n".join(filter(None, [output, error]))
@@ -139,6 +303,8 @@ def run_tests(repo_name: str, suite: str = "all") -> str:
             if len(combined) > 3000:
                 combined = "… (truncated) …\n" + combined[-3000:]
             status = "✅ PASSED" if proc.returncode == 0 else f"❌ FAILED (exit {proc.returncode})"
+            if retry_note:
+                combined = "\n".join(filter(None, [retry_note, combined]))
             results.append(f"{status}\n{combined}")
         except subprocess.TimeoutExpired:
             results.append("❌ TIMED OUT after 300 seconds")

@@ -66,6 +66,15 @@ Notes:
 - Never "upgrade wrapper" by editing `gradle/wrapper/gradle-wrapper.properties` directly.
 - Verify updates include `gradle/wrapper/gradle-wrapper.properties` (distribution URL) **and** wrapper executable/artifact files (for example `gradlew`, `gradlew.bat`, and `gradle/wrapper/gradle-wrapper.jar` when present).
 
+### Gradle semantic-analysis mismatch recovery
+
+If Gradle emits `BUG! exception in phase 'semantic analysis' ... Unsupported class file major version <N>` during `test` or `wrapper`, treat it as a JDK/runtime mismatch.
+
+- Stop daemon and retry in a clean environment before making code changes.
+- Clear sticky JVM env vars (`JAVA_TOOL_OPTIONS`, `_JAVA_OPTIONS`, `JDK_JAVA_OPTIONS`, `GRADLE_OPTS`) before retry.
+- Prefer wrapper commands with `--no-daemon` for automation retries.
+- If multiple JDKs are installed, retry with a lower compatible JDK home instead of looping the same command.
+
 ### buildscript classpath
 
 ```groovy

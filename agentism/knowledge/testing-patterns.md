@@ -31,3 +31,11 @@ Rules for writing and running tests on this platform.
 - Use `Background:` for preconditions shared across all scenarios in a feature.
 
 ---
+
+## Gradle/JDK mismatch policy
+
+- If local Gradle output contains `Unsupported class file major version`, do not stop after the first failure.
+- Retry once after clearing sticky JVM env vars and stopping Gradle daemons.
+- For retry, prefer a compatible lower JDK home when multiple JDKs are installed.
+- Only report local verification as blocked after this recovery retry also fails.
+
